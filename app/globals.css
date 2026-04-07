@@ -4,40 +4,40 @@
 
 @layer base {
   :root {
-    --background: 240 15% 5%;
-    --foreground: 0 0% 92%;
+    --background: 224 20% 8%;
+    --foreground: 220 20% 92%;
 
-    --card: 240 14% 8%;
-    --card-foreground: 0 0% 92%;
+    --card: 224 22% 11%;
+    --card-foreground: 220 20% 92%;
 
-    --popover: 240 14% 8%;
-    --popover-foreground: 0 0% 92%;
+    --popover: 224 22% 11%;
+    --popover-foreground: 220 20% 92%;
 
-    --primary: 40 70% 48%;
-    --primary-foreground: 240 15% 5%;
+    --primary: 38 72% 50%;
+    --primary-foreground: 224 20% 8%;
 
-    --secondary: 240 12% 13%;
-    --secondary-foreground: 0 0% 80%;
+    --secondary: 224 18% 16%;
+    --secondary-foreground: 220 15% 80%;
 
-    --muted: 240 12% 11%;
-    --muted-foreground: 240 8% 48%;
+    --muted: 224 18% 14%;
+    --muted-foreground: 224 12% 50%;
 
-    --accent: 240 12% 16%;
-    --accent-foreground: 0 0% 90%;
+    --accent: 224 18% 18%;
+    --accent-foreground: 220 20% 92%;
 
-    --destructive: 0 60% 50%;
-    --destructive-foreground: 0 0% 92%;
+    --destructive: 0 62% 55%;
+    --destructive-foreground: 220 20% 92%;
 
-    --border: 240 12% 16%;
-    --input: 240 12% 13%;
-    --ring: 40 70% 48%;
+    --border: 224 16% 18%;
+    --input: 224 18% 13%;
+    --ring: 38 72% 50%;
 
-    --radius: 0.375rem;
+    --radius: 0.5rem;
   }
 }
 
 @layer base {
-  * { @apply border-border; }
+  * { @apply border-border box-border; }
 
   html {
     @apply bg-background text-foreground;
@@ -46,28 +46,30 @@
 
   body {
     @apply bg-background text-foreground min-h-screen;
-    font-size: 14px;
   }
 
-  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar { width: 4px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { @apply bg-border rounded-full; }
 }
 
 @layer utilities {
-  .team-a { border-top: 2px solid #3b6fd4; }
-  .team-b { border-top: 2px solid #d43b3b; }
+  .gold { color: #c8952a; }
+  .gold-bg { background: linear-gradient(135deg, #c8952a, #e8b84b); }
 
-  .gold-text {
-    color: #c8a028;
-  }
+  .team-a-top { border-top: 2px solid #3b82f6; }
+  .team-b-top { border-top: 2px solid #ef4444; }
 
   .fade-in {
-    animation: fadeIn 0.25s ease-out;
+    animation: fadeIn 0.2s ease-out;
   }
 
   @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(6px); }
+    from { opacity: 0; transform: translateY(8px); }
     to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .input-row:hover {
+    background: hsl(224, 20%, 13%);
   }
 }
