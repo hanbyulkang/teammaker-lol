@@ -1,0 +1,87 @@
+// This is your Prisma schema file.
+// Learn more: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Cached player profile from Riot API
+// TTL-based: expiresAt controls freshness
+model CachedPlayer {
+  id          String   @id @default(cuid())
+  puuid       String   @unique
+  gameName    String
+  tagLine     String
+  platform    String
+  profileData Json     // Full PlayerProfile serialized
+  fetchedAt   DateTime @default(now())
+  expiresAt   DateTime
+
+  @@index([puuid])
+  @@index([gameName, tagLine, platform])
+  @@map("cached_players")
+}
+
+// A lobby is a single team-making session
+model Lobby {
+  id          String           @id @default(cuid())
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  platform    String
+  players     LobbyPlayer[]
+  constraints LobbyConstraint[]
+  result      GeneratedResult?
+
+  @@map("lobbies")
+}
+
+// Players in a lobby (stored by PUUID reference)
+model LobbyPlayer {
+  id        String   @id @default(cuid())
+  lobbyId   String
+  puuid     String
+  gameName  String
+  tagLine   String
+  addedAt   DateTime @default(now())
+
+  lobby     Lobby    @relation(fields: [lobbyId], references: [id], onDelete: Cascade)
+
+  @@index([lobbyId])
+  @@map("lobby_players")
+}
+
+// Hard constraints between two players
+model LobbyConstraint {
+  id        String         @id @default(cuid())
+  lobbyId   String
+  type      ConstraintType
+  puuidA    String
+  puuidB    String
+
+  lobby     Lobby          @relation(fields: [lobbyId], references: [id], onDelete: Cascade)
+
+  @@index([lobbyId])
+  @@map("lobby_constraints")
+}
+
+enum ConstraintType {
+  TOGETHER
+  OPPOSITE
+}
+
+// The generated team result for a lobby
+model GeneratedResult {
+  id        String   @id @default(cuid())
+  lobbyId   String   @unique
+  result    Json     // Serialized TeamGenerationResult
+  createdAt DateTime @default(now())
+
+  lobby     Lobby    @relation(fields: [lobbyId], references: [id], onDelete: Cascade)
+
+  @@map("generated_results")
+}
