@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { generateTeams, isOptimizerError } from "@/lib/optimizer/teamOptimizer";
-import type { TeamConstraint, PlayerProfile, Platform } from "@/types";
+import type { TeamConstraint, PlayerProfile } from "@/types";
 
 const constraintSchema = z.object({
   id: z.string(),
@@ -13,6 +13,8 @@ const constraintSchema = z.object({
 
 const schema = z.object({
   constraints: z.array(constraintSchema).default([]),
+  // Accept profiles directly from client — avoids cache miss issues
+  profiles: z.array(z.any()).optional(),
 });
 
 export async function POST(
@@ -25,38 +27,47 @@ export async function POST(
     const parsed = schema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: "Invalid request" },
-        { status: 400 }
+      return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+    }
+
+    const constraints: TeamConstraint[] = parsed.data.constraints;
+    let profiles: PlayerProfile[];
+
+    if (parsed.data.profiles && parsed.data.profiles.length === 10) {
+      // Use profiles sent directly from client (preferred path)
+      profiles = parsed.data.profiles as PlayerProfile[];
+    } else {
+      // Fall back to loading from DB cache
+      const lobby = await prisma.lobby.findUnique({
+        where: { id },
+        include: { players: true },
+      });
+
+      if (!lobby) {
+        return NextResponse.json({ error: "Lobby not found" }, { status: 404 });
+      }
+
+      profiles = await Promise.all(
+        lobby.players.map(async (lp) => {
+          const cached = await prisma.cachedPlayer.findUnique({
+            where: { puuid: lp.puuid },
+          });
+          if (!cached) {
+            throw new Error(`Profile not found for ${lp.gameName}#${lp.tagLine}. Please re-validate players.`);
+          }
+          return cached.profileData as unknown as PlayerProfile;
+        })
       );
     }
 
-    // Load lobby
-    const lobby = await prisma.lobby.findUnique({
-      where: { id },
-      include: { players: true },
-    });
-
-    if (!lobby) {
-      return NextResponse.json({ error: "Lobby not found" }, { status: 404 });
+    if (profiles.length !== 10) {
+      return NextResponse.json(
+        { error: `Need exactly 10 players, got ${profiles.length}` },
+        { status: 422 }
+      );
     }
 
-    // Load cached player profiles
-    const profiles = await Promise.all(
-      lobby.players.map(async (lp) => {
-        const cached = await prisma.cachedPlayer.findUnique({
-          where: { puuid: lp.puuid },
-        });
-        if (!cached) {
-          throw new Error(`No cached profile for player ${lp.gameName}#${lp.tagLine}`);
-        }
-        return cached.profileData as unknown as PlayerProfile;
-      })
-    );
-
-    const constraints: TeamConstraint[] = parsed.data.constraints;
-
-    // Run optimizer (synchronous — fast enough for serverless)
+    // Run optimizer
     const output = generateTeams(profiles, constraints);
 
     if (isOptimizerError(output)) {
@@ -66,42 +77,40 @@ export async function POST(
       );
     }
 
-    // Persist constraints and result
-    await prisma.$transaction([
-      // Clear old constraints
-      prisma.lobbyConstraint.deleteMany({ where: { lobbyId: id } }),
-      // Insert new constraints
-      ...(constraints.length > 0
-        ? [
-            prisma.lobbyConstraint.createMany({
+    // Persist result (best effort — don't fail if DB write fails)
+    try {
+      await prisma.$transaction([
+        prisma.lobbyConstraint.deleteMany({ where: { lobbyId: id } }),
+        ...(constraints.length > 0
+          ? [prisma.lobbyConstraint.createMany({
               data: constraints.map((c) => ({
                 lobbyId: id,
                 type: c.type,
                 puuidA: c.puuidA,
                 puuidB: c.puuidB,
               })),
-            }),
-          ]
-        : []),
-      // Upsert result
-      prisma.generatedResult.upsert({
-        where: { lobbyId: id },
-        create: {
-          lobbyId: id,
-          result: output.result as unknown as import("@prisma/client").Prisma.InputJsonValue,
-        },
-        update: {
-          result: output.result as unknown as import("@prisma/client").Prisma.InputJsonValue,
-          createdAt: new Date(),
-        },
-      }),
-    ]);
+            })]
+          : []),
+        prisma.generatedResult.upsert({
+          where: { lobbyId: id },
+          create: {
+            lobbyId: id,
+            result: output.result as unknown as import("@prisma/client").Prisma.InputJsonValue,
+          },
+          update: {
+            result: output.result as unknown as import("@prisma/client").Prisma.InputJsonValue,
+            createdAt: new Date(),
+          },
+        }),
+      ]);
+    } catch (dbErr) {
+      console.warn("DB persist failed (non-fatal):", dbErr);
+    }
 
     return NextResponse.json({ result: output.result });
   } catch (err) {
-    console.error("lobby/[id]/generate error:", err);
-    const message =
-      err instanceof Error ? err.message : "Internal server error";
+    console.error("generate error:", err);
+    const message = err instanceof Error ? err.message : "Internal server error";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
