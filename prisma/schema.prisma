@@ -85,3 +85,79 @@ model GeneratedResult {
 
   @@map("generated_results")
 }
+
+// ─── Auth (NextAuth v5) ──────────────────────────────────────────────────────
+
+model User {
+  id            String        @id @default(cuid())
+  email         String        @unique
+  name          String?
+  image         String?
+  emailVerified DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  accounts      Account[]
+  sessions      Session[]
+  savedPlayers  SavedPlayer[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// Players saved by a logged-in user for quick re-use
+model SavedPlayer {
+  id          String   @id @default(cuid())
+  userId      String
+  puuid       String
+  gameName    String
+  tagLine     String
+  platform    String
+  profileData Json     // Serialized PlayerProfile (tier, roles, etc.)
+  savedAt     DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, puuid])
+  @@index([userId])
+  @@map("saved_players")
+}

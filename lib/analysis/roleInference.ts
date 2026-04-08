@@ -66,19 +66,29 @@ export function inferRoleComfort(
   // Fall back to uniform distribution if not enough data
   const hasEnoughData = totalRoled >= MIN_MATCHES_FOR_INFERENCE;
 
+  // When there's not enough data, return neutral scores (no bonus/penalty)
+  // and signal unknown role via FILL-like defaults — UI should prompt manual input
+  if (!hasEnoughData) {
+    const neutralScore = baseSkill;
+    const roleComfort: RoleComfort[] = ALL_ROLES.map((role) => ({
+      role,
+      frequency: 0.2,
+      score: neutralScore,
+    }));
+    return { roleComfort, primaryRole: "MID", secondaryRole: "SUPPORT" };
+  }
+
+  const sorted = (Object.entries(roleCounts) as [Role, number][]).sort(
+    (a, b) => b[1] - a[1]
+  );
+
   const roleComfort: RoleComfort[] = ALL_ROLES.map((role) => {
     const count = roleCounts[role];
-    const frequency = hasEnoughData ? count / totalRoled : 0.2; // uniform fallback
+    const frequency = count / totalRoled;
 
-    // Determine comfort tier
     let comfortTier: "primary" | "secondary" | "off" = "off";
-    if (hasEnoughData) {
-      const sorted = (Object.entries(roleCounts) as [Role, number][]).sort(
-        (a, b) => b[1] - a[1]
-      );
-      if (sorted[0][0] === role) comfortTier = "primary";
-      else if (sorted[1][0] === role && sorted[1][1] > 0) comfortTier = "secondary";
-    }
+    if (sorted[0][0] === role) comfortTier = "primary";
+    else if (sorted[1][0] === role && sorted[1][1] > 0) comfortTier = "secondary";
 
     const bonus = ROLE_COMFORT_BONUSES[comfortTier];
     const score = Math.max(0, baseSkill + bonus);
@@ -110,6 +120,9 @@ export function getRoleScore(
 
 /**
  * Determine if a role assignment is the player's primary, secondary, or off-role.
+ * Uses roleComfort scores to detect off-role: if a role's score is significantly
+ * below the max (gap > 200pts), it means it has an off-role penalty (-150).
+ * This correctly handles multi-role selections (not just primary/secondary).
  */
 export function classifyRoleAssignment(
   roleComfort: RoleComfort[],
@@ -117,10 +130,15 @@ export function classifyRoleAssignment(
   primaryRole: Role,
   secondaryRole: Role
 ): { isPrimaryRole: boolean; isSecondaryRole: boolean; isOffRole: boolean } {
+  const maxScore = Math.max(...roleComfort.map((rc) => rc.score));
+  const assignedScore = roleComfort.find((rc) => rc.role === assignedRole)?.score ?? 0;
+  // Gap between playable (+80) and off-role (-150) is 230pts; use 200 as threshold
+  const isOffRole = maxScore - assignedScore > 200;
+
   return {
     isPrimaryRole: assignedRole === primaryRole,
     isSecondaryRole: assignedRole === secondaryRole && assignedRole !== primaryRole,
-    isOffRole: assignedRole !== primaryRole && assignedRole !== secondaryRole,
+    isOffRole,
   };
 }
 

@@ -41,11 +41,13 @@
 
   html {
     @apply bg-background text-foreground;
+    font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
   }
 
   body {
     @apply bg-background text-foreground min-h-screen;
+    font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   }
 
   ::-webkit-scrollbar { width: 4px; }

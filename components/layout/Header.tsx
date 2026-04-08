@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { LanguageSwitcher } from "./LanguageSwitcher";
+import { AuthButton } from "@/components/auth/AuthButton";
 
 export function Header() {
   return (
@@ -15,7 +16,10 @@ export function Header() {
         <Link href="/" className="font-bold text-[15px] tracking-tight hover:opacity-80 transition-opacity">
           teammaker<span className="gold">.lol</span>
         </Link>
-        <LanguageSwitcher />
+        <div className="flex items-center gap-3">
+          <AuthButton />
+          <LanguageSwitcher />
+        </div>
       </div>
     </header>
   );

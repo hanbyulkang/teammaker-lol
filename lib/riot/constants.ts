@@ -56,6 +56,7 @@ export const ROLE_INFERENCE_QUEUE_IDS = new Set([
   RANKED_SOLO_QUEUE_ID,
   RANKED_FLEX_QUEUE_ID,
   NORMAL_DRAFT_QUEUE_ID,
+  NORMAL_BLIND_QUEUE_ID,
 ]);
 
 /** How many recent matches to fetch for role inference */
@@ -65,5 +66,5 @@ export const RECENT_MATCH_COUNT = 20;
 export const MIN_MATCHES_FOR_INFERENCE = 3;
 
 /** Cache TTL in milliseconds */
-export const PLAYER_CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+export const PLAYER_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 export const MATCH_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days

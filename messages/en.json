@@ -49,7 +49,15 @@
     "parseError": "Could not parse: {id} — use format Name#TAG",
     "duplicateError": "Duplicate player: {id}",
     "countError": "Enter exactly 10 players (currently {count})",
-    "formatHint": "Format: GameName#TAG"
+    "formatHint": "Format: GameName#TAG",
+    "server": "Server",
+    "summonerName": "Summoner",
+    "tag": "Tag",
+    "loadButton": "Load",
+    "loadingPlayers": "Loading...",
+    "keyExpired": "Key expired",
+    "rateLimitShort": "Rate limited",
+    "notFoundShort": "Not found"
   },
   "playerCard": {
     "rank": "Rank",
@@ -82,7 +90,12 @@
     "selectPlayerA": "Select Player A",
     "selectPlayerB": "Select Player B",
     "selectType": "Select type",
-    "samePlayerError": "Select two different players"
+    "samePlayerError": "Select two different players",
+    "optional": "Optional",
+    "togetherShort": "Same Team",
+    "oppositeShort": "Diff. Team",
+    "selectPlayer": "Select player",
+    "constraintSectionTitle": "Team Constraints"
   },
   "generate": {
     "button": "Generate Balanced Teams",
@@ -122,7 +135,10 @@
       "MID": "MID",
       "ADC": "ADC",
       "SUPPORT": "SUP"
-    }
+    },
+    "analysis": "Analysis",
+    "strengthGapPt": "Strength gap {gap}pt",
+    "offRoleSuffix": "· Off-role {n}"
   },
   "tier": {
     "IRON": "Iron",
@@ -146,7 +162,13 @@
     "invalidInput": "Invalid input. Please check your entries.",
     "constraintImpossible": "Your constraints cannot be satisfied. A player cannot be on both teams.",
     "notEnoughPlayers": "Need exactly 10 players. Currently have {count}.",
-    "optimizerFailed": "Could not find a valid team split. Check your constraints."
+    "optimizerFailed": "Could not find a valid team split. Check your constraints.",
+    "emptyFields": "{count} players have an empty name or tag.",
+    "missingPrimary": "Please select a position for: {names}",
+    "missingPrimaryWithSecondary": "Primary position required for: {names} (secondary-only is not enough)",
+    "constraintConflict": "{a} and {b} cannot be on the same team AND different teams.",
+    "constraintGroupTooLarge": "Same-team group has {count} players — max is 5. ({names})",
+    "apiKeyExpired": "API key expired. Try again later, or enter players manually."
   },
   "lobby": {
     "notFound": "Lobby Not Found",
@@ -165,27 +187,27 @@
   },
   "privacy": {
     "title": "Privacy Policy",
-    "lastUpdated": "Last updated: January 2025",
-    "intro": "teammaker.lol (\"we\", \"us\") is a free tool for generating balanced League of Legends in-house teams. We take a minimal-data approach and are committed to transparency.",
+    "lastUpdated": "Last updated: April 2025",
+    "intro": "teammaker.lol (\"we\", \"us\") is a free tool for generating balanced League of Legends in-house teams. The service can be used without an account. Optional Google sign-in enables personalized features such as saving player profiles for quick re-use.",
     "dataCollectedTitle": "What We Collect",
-    "dataCollectedBody": "We collect only the data needed to operate the service:\n- Riot IDs (gameName + tagLine) you enter\n- Publicly available match and ranked data fetched from the Riot Games API\n- Generated team results (stored temporarily for sharing purposes)\n- Basic server request logs (IP address, timestamp, request path) for security and debugging",
-    "dataNot": "We do not collect:\n- Email addresses\n- Passwords or account credentials\n- Payment information\n- Personal demographic data\n- Persistent user identifiers beyond a session",
+    "dataCollectedBody": "We collect only the data needed to operate the service:\n- Riot IDs (gameName + tagLine) you enter\n- Publicly available match and ranked data fetched from the Riot Games API\n- Generated team results (stored temporarily for sharing purposes)\n- Basic server request logs (IP address, timestamp, request path) for security and debugging\n\nIf you sign in with Google, we additionally collect:\n- Your Google account email address and display name\n- Your Google profile picture URL\n- An OAuth token to authenticate your session (we do not store passwords)",
+    "dataNot": "We do not collect:\n- Passwords or account credentials\n- Payment information\n- Personal demographic data\n- Any data from your Google account beyond name, email, and profile picture",
     "dataUseTitle": "How We Use Your Data",
-    "dataUseBody": "Data is used solely to:\n- Resolve Riot accounts and fetch match/rank data from the Riot API\n- Generate balanced team compositions\n- Cache API responses to reduce repeated calls and improve performance\n- Provide shareable lobby links",
-    "cacheTitle": "Data Caching",
-    "cacheBody": "Player rank and match data is cached in our database for up to 30 minutes to improve performance and reduce Riot API calls. Generated lobby results may be retained for up to 7 days for sharing purposes. Cached data is then automatically deleted.",
+    "dataUseBody": "Data is used solely to:\n- Resolve Riot accounts and fetch match/rank data from the Riot API\n- Generate balanced team compositions\n- Cache API responses to reduce repeated calls and improve performance\n- Provide shareable lobby links\n- (Signed-in users) Save and restore player tier/role profiles across sessions",
+    "cacheTitle": "Data Caching & Storage",
+    "cacheBody": "Player rank and match data is cached in our database for up to 30 minutes to improve performance and reduce Riot API calls. Generated lobby results may be retained for up to 7 days for sharing purposes, then automatically deleted.\n\nFor signed-in users, saved player profiles are stored until you delete them or close your account.",
     "thirdPartyTitle": "Third-Party Services",
-    "thirdPartyBody": "We use the Riot Games API to fetch publicly available player data. Use of this data is subject to Riot Games' developer policies. We do not share your data with any other third parties.",
-    "cookiesTitle": "Cookies",
-    "cookiesBody": "We may use minimal session storage to maintain UI state during your visit. We do not use tracking cookies or third-party analytics.",
+    "thirdPartyBody": "We use the Riot Games API to fetch publicly available player data. We use Google OAuth (via Google's authentication service) for optional sign-in. Use of these services is subject to their respective privacy policies. We do not share your data with any other third parties.",
+    "cookiesTitle": "Cookies & Sessions",
+    "cookiesBody": "We use a secure, HTTP-only session cookie to maintain your login state if you sign in with Google. We do not use tracking cookies or third-party analytics.",
     "rightsTitle": "Your Rights",
-    "rightsBody": "You may request deletion of any cached data associated with your Riot ID by contacting us. Since we do not require accounts, there is no persistent personal profile to delete.",
+    "rightsBody": "You may request deletion of any data associated with your account by contacting us. For signed-in users, you can delete your saved players at any time from the app. If you used the service without signing in, there is no persistent personal profile to delete.",
     "contactTitle": "Contact",
     "contactBody": "Questions? Reach us at: {email}"
   },
   "terms": {
     "title": "Terms of Service",
-    "lastUpdated": "Last updated: January 2025",
+    "lastUpdated": "Last updated: April 2025",
     "acceptTitle": "Acceptance",
     "acceptBody": "By using teammaker.lol, you agree to these Terms of Service. If you do not agree, do not use the service.",
     "serviceTitle": "The Service",
@@ -225,5 +247,37 @@
     "trademarkBody": "League of Legends, Riot Games, and related marks are trademarks of Riot Games, Inc. This site is not affiliated with or endorsed by Riot Games.",
     "dataTitle": "Data Accuracy",
     "dataBody": "All player data displayed on this site is derived from the Riot Games API and may not reflect real-time information. There may be delays due to caching. Team balance scores are algorithmic estimates and do not represent official rankings or guaranteed competitive fairness."
+  },
+  "review": {
+    "back": "Back",
+    "backToReview": "Back to Review",
+    "autoVerified": "{n}/10 auto-verified",
+    "summonerCol": "Summoner",
+    "tierCol": "Tier",
+    "positionCol": "Position (Prim/Sec)",
+    "generateButton": "Generate Teams",
+    "generating": "Generating..."
+  },
+  "positionHelp": {
+    "title": "How to Select Positions",
+    "primaryLabel": "1 click → Primary (gold)",
+    "primaryDesc": "Main lane. Highest priority in team assignment. Multiple allowed.",
+    "secondaryLabel": "2 clicks → Secondary (blue)",
+    "secondaryDesc": "Playable lane. Considered when primary isn't possible.",
+    "deselectLabel": "3 clicks → Deselect",
+    "deselectDesc": "Off-role penalty applied. Less likely to be assigned this lane.",
+    "warning": "Players without a primary position cannot generate teams."
+  },
+  "save": {
+    "loginPromptInput": "Sign in to save player data and load it quickly next time",
+    "loginPromptResult": "Sign in to save player tier data for quick reloading",
+    "loginButton": "Sign in with Google",
+    "loginButtonShort": "Sign in",
+    "savedPlayersLabel": "Saved Players",
+    "searchPlaceholder": "Search...",
+    "savePromptQuestion": "Save these players' tier data?",
+    "savePromptSaved": "Player data saved. Load them instantly next time.",
+    "saving": "Saving...",
+    "save": "Save"
   }
 }

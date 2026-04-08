@@ -189,16 +189,20 @@ function betterThan(
 ): boolean {
   if (!current) return true;
 
-  // Primary: lower strength gap wins
-  const GAP_THRESHOLD = 20; // treat gaps within 20 pts as "equal" for tiebreaking
+  const offDiff = current.offRoleCount - candidate.offRoleCount;
   const gapDiff = current.strengthGap - candidate.strengthGap;
 
+  // If off-role count differs, strongly prefer fewer off-roles
+  // unless the balance gap penalty is very large (>150 pts)
+  if (offDiff !== 0) {
+    if (offDiff > 0 && gapDiff >= -150) return true;  // fewer off-roles + acceptable gap
+    if (offDiff < 0 && gapDiff <= 150) return false;  // more off-roles, reject unless gap is much better
+  }
+
+  // Same off-role count: prefer smaller strength gap (within 20pt threshold)
+  const GAP_THRESHOLD = 20;
   if (gapDiff > GAP_THRESHOLD) return true;
   if (gapDiff < -GAP_THRESHOLD) return false;
-
-  // Secondary: fewer off-role assignments
-  if (candidate.offRoleCount < current.offRoleCount) return true;
-  if (candidate.offRoleCount > current.offRoleCount) return false;
 
   // Tiebreaker: higher total role quality
   return candidate.totalRoleQuality > current.totalRoleQuality;

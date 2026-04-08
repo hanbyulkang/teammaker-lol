@@ -49,7 +49,15 @@
     "parseError": "형식 오류: {id} — Name#TAG 형식으로 입력하세요",
     "duplicateError": "중복 플레이어: {id}",
     "countError": "정확히 10명을 입력해야 합니다 (현재 {count}명)",
-    "formatHint": "형식: 게임이름#태그"
+    "formatHint": "형식: 게임이름#태그",
+    "server": "서버",
+    "summonerName": "소환사명",
+    "tag": "태그",
+    "loadButton": "불러오기",
+    "loadingPlayers": "불러오는 중...",
+    "keyExpired": "키만료",
+    "rateLimitShort": "제한",
+    "notFoundShort": "없음"
   },
   "playerCard": {
     "rank": "티어",
@@ -82,7 +90,12 @@
     "selectPlayerA": "플레이어 A 선택",
     "selectPlayerB": "플레이어 B 선택",
     "selectType": "유형 선택",
-    "samePlayerError": "서로 다른 플레이어를 선택하세요"
+    "samePlayerError": "서로 다른 플레이어를 선택하세요",
+    "optional": "선택사항",
+    "togetherShort": "같은팀",
+    "oppositeShort": "다른팀",
+    "selectPlayer": "플레이어 선택",
+    "constraintSectionTitle": "팀 구성 제약"
   },
   "generate": {
     "button": "균형 팀 생성",
@@ -122,7 +135,10 @@
       "MID": "미드",
       "ADC": "원딜",
       "SUPPORT": "서폿"
-    }
+    },
+    "analysis": "분석",
+    "strengthGapPt": "전력 차이 {gap}pt",
+    "offRoleSuffix": "· 오프롤 {n}명"
   },
   "tier": {
     "IRON": "아이언",
@@ -146,7 +162,13 @@
     "invalidInput": "잘못된 입력입니다. 입력 내용을 확인하세요.",
     "constraintImpossible": "제약 조건을 만족시킬 수 없습니다. 한 플레이어가 두 팀에 속할 수 없습니다.",
     "notEnoughPlayers": "정확히 10명이 필요합니다. 현재 {count}명입니다.",
-    "optimizerFailed": "유효한 팀 배분을 찾을 수 없습니다. 제약 조건을 확인하세요."
+    "optimizerFailed": "유효한 팀 배분을 찾을 수 없습니다. 제약 조건을 확인하세요.",
+    "emptyFields": "{count}명의 이름 또는 태그가 비어있습니다.",
+    "missingPrimary": "포지션을 선택해주세요: {names}",
+    "missingPrimaryWithSecondary": "주 포지션을 선택해주세요: {names} (부포지션만 선택된 경우 주포지션도 필요합니다)",
+    "constraintConflict": "{a}와 {b}은 같은팀이면서 다른팀일 수 없습니다.",
+    "constraintGroupTooLarge": "같은팀 제약으로 묶인 인원이 {count}명입니다 — 한 팀은 5명까지만 가능합니다. ({names})",
+    "apiKeyExpired": "API 키가 만료되었습니다. 잠시 후 다시 시도하거나, 에러 플레이어는 수동으로 입력해주세요."
   },
   "lobby": {
     "notFound": "로비를 찾을 수 없음",
@@ -165,27 +187,27 @@
   },
   "privacy": {
     "title": "개인정보 처리방침",
-    "lastUpdated": "최종 업데이트: 2025년 1월",
-    "intro": "teammaker.lol(\"당사\")은 리그 오브 레전드 내전 팀 배정을 위한 무료 도구입니다. 당사는 최소한의 데이터 수집 원칙을 따르며 투명성을 중요시합니다.",
+    "lastUpdated": "최종 업데이트: 2025년 4월",
+    "intro": "teammaker.lol(\"당사\")은 리그 오브 레전드 내전 팀 배정을 위한 무료 도구입니다. 회원가입 없이도 사용할 수 있으며, 선택적으로 Google 로그인을 통해 플레이어 정보 저장 등 개인화 기능을 이용할 수 있습니다.",
     "dataCollectedTitle": "수집하는 정보",
-    "dataCollectedBody": "서비스 운영에 필요한 정보만 수집합니다:\n- 입력하신 Riot ID (게임 이름 + 태그)\n- Riot Games API에서 가져온 공개 매치 및 랭크 데이터\n- 공유 목적으로 임시 저장되는 팀 배정 결과\n- 보안 및 디버깅을 위한 기본 서버 요청 로그 (IP 주소, 타임스탬프, 요청 경로)",
-    "dataNot": "수집하지 않는 정보:\n- 이메일 주소\n- 비밀번호 또는 계정 자격증명\n- 결제 정보\n- 개인 인구통계 데이터\n- 세션 외 지속적인 사용자 식별자",
+    "dataCollectedBody": "서비스 운영에 필요한 정보만 수집합니다:\n- 입력하신 Riot ID (게임 이름 + 태그)\n- Riot Games API에서 가져온 공개 매치 및 랭크 데이터\n- 공유 목적으로 임시 저장되는 팀 배정 결과\n- 보안 및 디버깅을 위한 기본 서버 요청 로그 (IP 주소, 타임스탬프, 요청 경로)\n\nGoogle 로그인 시 추가로 수집하는 정보:\n- Google 계정 이메일 주소 및 표시 이름\n- Google 프로필 사진 URL\n- 로그인 세션 인증을 위한 OAuth 토큰 (비밀번호는 저장하지 않습니다)",
+    "dataNot": "수집하지 않는 정보:\n- 비밀번호 또는 계정 자격증명\n- 결제 정보\n- 개인 인구통계 데이터\n- 이름, 이메일, 프로필 사진 외의 Google 계정 정보",
     "dataUseTitle": "정보 이용 목적",
-    "dataUseBody": "수집된 데이터는 다음 목적으로만 사용됩니다:\n- Riot 계정 확인 및 API에서 매치/랭크 데이터 가져오기\n- 균형 잡힌 팀 구성 생성\n- 반복 요청 감소 및 성능 향상을 위한 API 응답 캐싱\n- 공유 가능한 로비 링크 제공",
-    "cacheTitle": "데이터 캐싱",
-    "cacheBody": "플레이어 랭크 및 매치 데이터는 성능 향상과 Riot API 호출 감소를 위해 최대 30분간 데이터베이스에 캐싱됩니다. 생성된 로비 결과는 공유 목적으로 최대 7일간 보관된 후 자동 삭제됩니다.",
+    "dataUseBody": "수집된 데이터는 다음 목적으로만 사용됩니다:\n- Riot 계정 확인 및 API에서 매치/랭크 데이터 가져오기\n- 균형 잡힌 팀 구성 생성\n- 반복 요청 감소 및 성능 향상을 위한 API 응답 캐싱\n- 공유 가능한 로비 링크 제공\n- (로그인 사용자) 플레이어 티어·포지션 정보를 저장하여 다음 세션에서 빠르게 불러오기",
+    "cacheTitle": "데이터 캐싱 및 저장",
+    "cacheBody": "플레이어 랭크 및 매치 데이터는 성능 향상과 Riot API 호출 감소를 위해 최대 30분간 데이터베이스에 캐싱됩니다. 생성된 로비 결과는 공유 목적으로 최대 7일간 보관된 후 자동 삭제됩니다.\n\nGoogle 로그인 사용자의 경우, 저장된 플레이어 정보는 직접 삭제하거나 계정을 탈퇴할 때까지 보관됩니다.",
     "thirdPartyTitle": "제3자 서비스",
-    "thirdPartyBody": "공개된 플레이어 데이터 조회를 위해 Riot Games API를 사용합니다. 해당 데이터 사용은 Riot Games의 개발자 정책에 따릅니다. 개인 데이터를 다른 제3자와 공유하지 않습니다.",
-    "cookiesTitle": "쿠키",
-    "cookiesBody": "방문 중 UI 상태 유지를 위해 최소한의 세션 스토리지를 사용할 수 있습니다. 추적 쿠키나 제3자 분석 도구는 사용하지 않습니다.",
+    "thirdPartyBody": "공개된 플레이어 데이터 조회를 위해 Riot Games API를 사용합니다. 선택적 로그인을 위해 Google OAuth(Google 인증 서비스)를 사용합니다. 각 서비스의 이용은 해당 서비스의 개인정보 처리방침에 따릅니다. 수집된 데이터를 다른 제3자와 공유하지 않습니다.",
+    "cookiesTitle": "쿠키 및 세션",
+    "cookiesBody": "Google 로그인 시 로그인 상태 유지를 위해 보안 HTTP-only 세션 쿠키를 사용합니다. 추적 쿠키나 제3자 분석 도구는 사용하지 않습니다.",
     "rightsTitle": "귀하의 권리",
-    "rightsBody": "귀하의 Riot ID와 관련된 캐싱된 데이터 삭제를 요청하려면 당사에 문의하세요. 계정이 필요 없는 서비스이므로 삭제할 지속적인 개인 프로필은 없습니다.",
+    "rightsBody": "계정 관련 데이터 삭제를 원하시면 당사에 문의해 주세요. 로그인 사용자의 경우 앱 내에서 저장된 플레이어 정보를 언제든지 삭제할 수 있습니다. 비로그인으로 서비스를 이용한 경우에는 삭제할 지속적인 개인 프로필이 없습니다.",
     "contactTitle": "문의하기",
     "contactBody": "문의사항이 있으시면 이메일로 연락해 주세요: {email}"
   },
   "terms": {
     "title": "이용약관",
-    "lastUpdated": "최종 업데이트: 2025년 1월",
+    "lastUpdated": "최종 업데이트: 2025년 4월",
     "acceptTitle": "약관 동의",
     "acceptBody": "teammaker.lol을 이용함으로써 본 이용약관에 동의하는 것으로 간주합니다. 동의하지 않는 경우 서비스를 이용하지 마세요.",
     "serviceTitle": "서비스 안내",
@@ -225,5 +247,37 @@
     "trademarkBody": "League of Legends, Riot Games 및 관련 마크는 Riot Games, Inc.의 상표입니다. 이 사이트는 Riot Games와 제휴하거나 공식 승인을 받지 않았습니다.",
     "dataTitle": "데이터 정확성",
     "dataBody": "이 사이트에 표시되는 모든 플레이어 데이터는 Riot Games API에서 가져온 것으로 실시간 정보를 반영하지 않을 수 있습니다. 캐싱으로 인해 지연이 발생할 수 있습니다. 팀 균형 점수는 알고리즘 추정값이며 공식 랭킹이나 경쟁적 공정성을 보장하지 않습니다."
+  },
+  "review": {
+    "back": "돌아가기",
+    "backToReview": "검토로 돌아가기",
+    "autoVerified": "{n}/10명 자동 확인됨",
+    "summonerCol": "소환사",
+    "tierCol": "티어",
+    "positionCol": "포지션 (주/부)",
+    "generateButton": "팀 생성",
+    "generating": "팀 생성 중..."
+  },
+  "positionHelp": {
+    "title": "포지션 선택 방법",
+    "primaryLabel": "1번 클릭 → 주 포지션 (금색)",
+    "primaryDesc": "메인으로 플레이하는 라인. 팀 구성 시 최우선 배정됩니다. 여러 개 선택 가능.",
+    "secondaryLabel": "2번 클릭 → 부 포지션 (파란색)",
+    "secondaryDesc": "플레이 가능한 라인. 주 포지션 배정이 어려울 때 고려됩니다.",
+    "deselectLabel": "3번 클릭 → 선택 취소",
+    "deselectDesc": "오프롤 패널티가 적용되어 해당 라인 배정 가능성이 낮아집니다.",
+    "warning": "주 포지션이 없는 플레이어가 있으면 팀 생성이 불가합니다."
+  },
+  "save": {
+    "loginPromptInput": "로그인하면 플레이어 정보를 저장하고 빠르게 불러올 수 있어요",
+    "loginPromptResult": "로그인하면 플레이어 티어 정보를 저장해 다음에 바로 불러올 수 있어요",
+    "loginButton": "Google 로그인",
+    "loginButtonShort": "로그인",
+    "savedPlayersLabel": "저장된 플레이어",
+    "searchPlaceholder": "검색...",
+    "savePromptQuestion": "이 플레이어들의 티어 정보를 저장할까요?",
+    "savePromptSaved": "플레이어 티어 정보가 저장됐어요. 다음에 바로 불러올 수 있어요.",
+    "saving": "저장 중...",
+    "save": "저장"
   }
 }

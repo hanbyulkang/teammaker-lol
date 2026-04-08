@@ -86,12 +86,12 @@ export async function getSummonerByPuuid(
 
 // ─── League API ───────────────────────────────────────────────────────────────
 
-/** Get ranked entries for a summoner by encrypted summoner ID */
+/** Get ranked entries for a player by PUUID */
 export async function getRankedEntries(
-  summonerId: string,
+  puuid: string,
   platform: Platform
 ): Promise<LeagueEntryDto[]> {
-  const url = `${PLATFORM_BASE_URL(platform)}/lol/league/v4/entries/by-summoner/${encodeURIComponent(summonerId)}`;
+  const url = `${PLATFORM_BASE_URL(platform)}/lol/league/v4/entries/by-puuid/${encodeURIComponent(puuid)}`;
   return riotFetch<LeagueEntryDto[]>(url);
 }
 
