@@ -68,6 +68,8 @@ interface SavedPlayerEntry {
   gameName: string;
   tagLine: string;
   platform: string;
+  primaryRoles: Role[];
+  secondaryRoles: Role[];
 }
 
 function makeRow(name = "", tag = ""): PlayerRow {
@@ -217,10 +219,11 @@ export default function HomePage() {
       });
       setRows(updatedRows);
 
-      // Build review entries
+      // Build review entries — restore saved role selections if available
       const entries: ReviewEntry[] = updatedRows.map((row) => {
         if (row.profile) {
           const p = row.profile;
+          const saved = savedPlayers.find((s) => s.puuid === p.puuid);
           return {
             gameName: row.name.trim(),
             tagLine: row.tag.trim(),
@@ -228,8 +231,8 @@ export default function HomePage() {
             isManual: false,
             tier: (p.soloRanked ?? p.flexRanked)?.tier ?? "",
             division: ((p.soloRanked ?? p.flexRanked)?.rank ?? "IV") as Division,
-            primaryRoles: [],
-            secondaryRoles: [],
+            primaryRoles: saved?.primaryRoles ?? [],
+            secondaryRoles: saved?.secondaryRoles ?? [],
           };
         }
         return {
@@ -258,7 +261,7 @@ export default function HomePage() {
     } finally {
       setIsLoading(false);
     }
-  }, [rows, platform]);
+  }, [rows, platform, savedPlayers]);
 
   // ── Step 2: Generate teams from review ───────────────────────────────────
 
@@ -414,7 +417,17 @@ export default function HomePage() {
     if (!session?.user) { setSavedPlayers([]); return; }
     fetch("/api/saved-players")
       .then((r) => r.json())
-      .then((data) => setSavedPlayers(data.players ?? []))
+      .then((data) => {
+        const players = (data.players ?? []).map((p: { puuid: string; gameName: string; tagLine: string; platform: string; profileData?: { _primaryRoles?: Role[]; _secondaryRoles?: Role[] } }) => ({
+          puuid: p.puuid,
+          gameName: p.gameName,
+          tagLine: p.tagLine,
+          platform: p.platform,
+          primaryRoles: p.profileData?._primaryRoles ?? [],
+          secondaryRoles: p.profileData?._secondaryRoles ?? [],
+        }));
+        setSavedPlayers(players);
+      })
       .catch(() => {});
   }, [session?.user?.id]);
 
@@ -430,7 +443,11 @@ export default function HomePage() {
           gameName: e.profile!.gameName,
           tagLine: e.profile!.tagLine,
           platform: e.profile!.platform,
-          profileData: e.profile! as unknown as Record<string, unknown>,
+          profileData: {
+            ...(e.profile! as unknown as Record<string, unknown>),
+            _primaryRoles: e.primaryRoles,
+            _secondaryRoles: e.secondaryRoles,
+          },
         }));
       if (players.length === 0) return;
       await fetch("/api/saved-players", {
