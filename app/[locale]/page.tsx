@@ -776,8 +776,8 @@ export default function HomePage() {
                     )}
                     <div className="grid grid-cols-[1fr_auto] gap-1.5">
                       <div className="space-y-1">
-                        <div className="text-[10px] text-muted-foreground/50 mb-0.5">포지션 (1탭=주포, 2탭=부포)</div>
-                        <div className="flex gap-1">
+                        <div className="text-[10px] text-muted-foreground/50 mb-0.5">포지션</div>
+                        <div className="flex items-center gap-1">
                           {ALL_ROLES.map((role) => {
                             const isPrimary = editPlayerForm.primaryRoles.includes(role);
                             const isSecondary = editPlayerForm.secondaryRoles.includes(role);
@@ -785,16 +785,36 @@ export default function HomePage() {
                               <button
                                 key={role}
                                 onClick={() => handleEditFormRoleToggle(role)}
-                                className={cn(
-                                  "px-1.5 py-0.5 rounded text-[10px] font-medium border transition-colors",
-                                  isPrimary
-                                    ? "border-primary bg-primary/20 text-primary"
+                                className="flex items-center justify-center rounded transition-all duration-100 active:scale-90"
+                                style={{
+                                  width: 30,
+                                  height: 30,
+                                  background: isPrimary
+                                    ? "rgba(200,149,42,0.22)"
                                     : isSecondary
-                                    ? "border-amber-400/60 bg-amber-400/10 text-amber-300"
-                                    : "border-border/40 text-muted-foreground/50 hover:border-border hover:text-muted-foreground"
-                                )}
+                                    ? "rgba(59,130,246,0.18)"
+                                    : "rgba(255,255,255,0.04)",
+                                  border: isPrimary
+                                    ? "1px solid rgba(200,149,42,0.65)"
+                                    : isSecondary
+                                    ? "1px solid rgba(96,165,250,0.7)"
+                                    : "1px solid rgba(255,255,255,0.08)",
+                                }}
                               >
-                                {ROLE_KR[role]}
+                                <img
+                                  src={ROLE_ICON[role]}
+                                  alt={ROLE_KR[role]}
+                                  width={16}
+                                  height={16}
+                                  style={{
+                                    opacity: isPrimary ? 1 : isSecondary ? 0.9 : 0.22,
+                                    filter: isPrimary
+                                      ? "brightness(0) saturate(100%) invert(75%) sepia(60%) saturate(500%) hue-rotate(5deg)"
+                                      : isSecondary
+                                      ? "brightness(0) invert(1) sepia(1) saturate(5) hue-rotate(190deg)"
+                                      : "brightness(0) invert(1)",
+                                  }}
+                                />
                               </button>
                             );
                           })}
