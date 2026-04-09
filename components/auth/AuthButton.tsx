@@ -1,7 +1,6 @@
 "use client";
 
 import { useSession, signIn, signOut } from "next-auth/react";
-import Image from "next/image";
 import { LogIn, LogOut, Loader2 } from "lucide-react";
 
 export function AuthButton() {
@@ -17,23 +16,13 @@ export function AuthButton() {
 
   if (session?.user) {
     return (
-      <div className="flex items-center gap-2">
-        {session.user.image ? (
-          <Image
-            src={session.user.image}
-            alt={session.user.name ?? ""}
-            width={26}
-            height={26}
-            className="rounded-full ring-1 ring-border"
-          />
-        ) : (
-          <div
-            className="h-[26px] w-[26px] rounded-full flex items-center justify-center text-[11px] font-bold"
-            style={{ background: "rgba(200,149,42,0.2)", color: "#c8952a" }}
-          >
-            {(session.user.name ?? session.user.email ?? "?")[0].toUpperCase()}
-          </div>
-        )}
+      <div className="flex items-center gap-1.5">
+        <div
+          className="h-[26px] w-[26px] rounded-md flex items-center justify-center text-[12px] font-black select-none"
+          style={{ background: "rgba(200,149,42,0.15)", color: "#c8952a", border: "1px solid rgba(200,149,42,0.3)" }}
+        >
+          T
+        </div>
         <button
           onClick={() => signOut()}
           className="flex items-center gap-1 text-[12px] text-muted-foreground hover:text-foreground transition-colors"
