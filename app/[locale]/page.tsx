@@ -3,10 +3,11 @@
 import { useState, useCallback, useEffect } from "react";
 import { useSession, signIn } from "next-auth/react";
 import { useTranslations } from "next-intl";
-import { Loader2, X, RefreshCw, Share2, Check, ChevronDown, ArrowLeft, BookmarkPlus, Bookmark, Search, LogIn } from "lucide-react";
+import { Loader2, X, RefreshCw, Share2, Check, ChevronDown, ArrowLeft, BookmarkPlus, Bookmark, Search, LogIn, Pencil, RotateCcw } from "lucide-react";
 import { cn, lobbyUrl } from "@/lib/utils";
 import { PLATFORMS } from "@/lib/riot/constants";
 import { rankToScore } from "@/lib/analysis/rankMapping";
+import { buildTeamComposition, computeBalanceScore, generateExplanation } from "@/lib/optimizer/scorer";
 import type { Platform, PlayerProfile, TeamGenerationResult, Tier, Division, Role, RoleComfort, TeamConstraint, ConstraintType } from "@/types";
 import { v4 as uuidv4 } from "uuid";
 
@@ -794,6 +795,7 @@ export default function HomePage() {
               onShare={handleShare}
               onRegenerate={handleGenerate}
               isRegenerating={isLoading}
+              onResultEdit={(edited) => setResult(edited)}
             />
             {/* Save prompt */}
             {session?.user ? (
@@ -1373,74 +1375,184 @@ function ReviewRow({
 
 // ─── Result Panel ──────────────────────────────────────────────────────────────
 
-function ResultPanel({ result, copied, onShare, onRegenerate, isRegenerating }: {
+function ResultPanel({ result, copied, onShare, onRegenerate, isRegenerating, onResultEdit }: {
   result: TeamGenerationResult;
   copied: boolean;
   onShare: () => void;
   onRegenerate: () => void;
   isRegenerating: boolean;
+  onResultEdit: (r: TeamGenerationResult) => void;
 }) {
   const tResult = useTranslations("result");
   const tGenerate = useTranslations("generate");
   const tCommon = useTranslations("common");
+
+  // ── Edit mode state ─────────────────────────────────────────────────────────
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTeamA, setEditTeamA] = useState(result.teamA);
+  const [editTeamB, setEditTeamB] = useState(result.teamB);
+  const [selected, setSelected] = useState<{ puuid: string; team: "A" | "B" } | null>(null);
+
+  const editGap = Math.abs(editTeamA.totalStrength - editTeamB.totalStrength);
+  const editScore = computeBalanceScore(editTeamA.totalStrength, editTeamB.totalStrength);
+  const editOffRoleCount = [...editTeamA.roleAssignments, ...editTeamB.roleAssignments].filter((a) => a.isOffRole).length;
+
+  const startEdit = () => {
+    setEditTeamA(result.teamA);
+    setEditTeamB(result.teamB);
+    setSelected(null);
+    setIsEditing(true);
+  };
+
+  const resetEdit = () => {
+    setEditTeamA(result.teamA);
+    setEditTeamB(result.teamB);
+    setSelected(null);
+  };
+
+  const confirmEdit = () => {
+    const newExplanation = generateExplanation(editTeamA, editTeamB, editGap, editScore, editOffRoleCount);
+    onResultEdit({
+      ...result,
+      teamA: editTeamA,
+      teamB: editTeamB,
+      strengthGap: Math.round(editGap),
+      balanceScore: editScore,
+      offRoleCount: editOffRoleCount,
+      explanation: newExplanation,
+    });
+    setIsEditing(false);
+    setSelected(null);
+  };
+
+  const handlePlayerClick = (puuid: string, team: "A" | "B") => {
+    if (!selected) { setSelected({ puuid, team }); return; }
+    if (selected.puuid === puuid) { setSelected(null); return; }
+    if (selected.team === team) { setSelected({ puuid, team }); return; }
+
+    // Cross-team swap
+    const puuidA = selected.team === "A" ? selected.puuid : puuid;
+    const puuidB = selected.team === "B" ? selected.puuid : puuid;
+    const playerA = editTeamA.players.find((p) => p.puuid === puuidA)!;
+    const playerB = editTeamB.players.find((p) => p.puuid === puuidB)!;
+    setEditTeamA(buildTeamComposition([...editTeamA.players.filter((p) => p.puuid !== puuidA), playerB]));
+    setEditTeamB(buildTeamComposition([...editTeamB.players.filter((p) => p.puuid !== puuidB), playerA]));
+    setSelected(null);
+  };
+
+  // ── Display values (edit mode or normal) ────────────────────────────────────
   const { teamA, teamB, balanceScore, strengthGap, offRoleCount, explanation } = result;
+  const dispScore = isEditing ? editScore : balanceScore;
+  const dispGap   = isEditing ? Math.round(editGap) : Math.round(strengthGap);
+  const dispOff   = isEditing ? editOffRoleCount : offRoleCount;
+  const dispA     = isEditing ? editTeamA : teamA;
+  const dispB     = isEditing ? editTeamB : teamB;
 
   const scoreColor =
-    balanceScore >= 80 ? "#22c55e" :
-    balanceScore >= 60 ? "#f59e0b" : "#ef4444";
+    dispScore >= 80 ? "#22c55e" :
+    dispScore >= 60 ? "#f59e0b" : "#ef4444";
 
   return (
     <div className="space-y-4 fade-in">
+      {/* ── Score header ── */}
       <div
         className="rounded-xl px-5 py-4"
-        style={{ background: "hsl(224,22%,11%)", border: "1px solid hsl(224,16%,18%)" }}
+        style={{ background: "hsl(224,22%,11%)", border: `1px solid ${isEditing ? "rgba(200,149,42,0.35)" : "hsl(224,16%,18%)"}` }}
       >
+        {isEditing && (
+          <div className="flex items-center gap-2 mb-3 pb-2.5" style={{ borderBottom: "1px solid hsl(224,16%,16%)" }}>
+            <span
+              className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+              style={{ background: "rgba(200,149,42,0.15)", color: "#c8952a" }}
+            >
+              수정 모드
+            </span>
+            <span className="text-[11px] text-muted-foreground">
+              {selected ? "다른 팀의 플레이어를 클릭해 교체하세요" : "교체할 플레이어를 선택하세요"}
+            </span>
+          </div>
+        )}
+
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-3">
-            <span className="text-3xl font-bold tabular-nums" style={{ color: scoreColor }}>
-              {balanceScore}
+            <span
+              className="text-3xl font-bold tabular-nums transition-all duration-300"
+              style={{ color: scoreColor }}
+            >
+              {dispScore}
             </span>
             <div>
               <p className="text-sm font-semibold">{tResult("balanceScore")}</p>
               <p className="text-xs text-muted-foreground">
-                {tResult("strengthGapPt", { gap: Math.round(strengthGap) })}
-                {offRoleCount > 0 && " " + tResult("offRoleSuffix", { n: offRoleCount })}
+                {tResult("strengthGapPt", { gap: dispGap })}
+                {dispOff > 0 && " " + tResult("offRoleSuffix", { n: dispOff })}
               </p>
             </div>
           </div>
           <div className="flex gap-2">
-            <button
-              onClick={onRegenerate}
-              disabled={isRegenerating}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
-              style={{ background: "hsl(224,18%,16%)", border: "1px solid hsl(224,16%,22%)" }}
-            >
-              <RefreshCw className={cn("h-3.5 w-3.5", isRegenerating && "animate-spin")} />
-              {tGenerate("regenerate")}
-            </button>
-            <button
-              onClick={onShare}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
-              style={{ background: "hsl(224,18%,16%)", border: "1px solid hsl(224,16%,22%)" }}
-            >
-              {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Share2 className="h-3.5 w-3.5" />}
-              {copied ? tCommon("copied") : tGenerate("share")}
-            </button>
+            {isEditing ? (
+              <>
+                <button
+                  onClick={resetEdit}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+                  style={{ background: "hsl(224,18%,16%)", border: "1px solid hsl(224,16%,22%)" }}
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  초기화
+                </button>
+                <button
+                  onClick={confirmEdit}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors"
+                  style={{ background: "rgba(200,149,42,0.15)", border: "1px solid rgba(200,149,42,0.35)", color: "#c8952a" }}
+                >
+                  <Check className="h-3.5 w-3.5" />
+                  완료
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={onRegenerate}
+                  disabled={isRegenerating}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                  style={{ background: "hsl(224,18%,16%)", border: "1px solid hsl(224,16%,22%)" }}
+                >
+                  <RefreshCw className={cn("h-3.5 w-3.5", isRegenerating && "animate-spin")} />
+                  {tGenerate("regenerate")}
+                </button>
+                <button
+                  onClick={onShare}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+                  style={{ background: "hsl(224,18%,16%)", border: "1px solid hsl(224,16%,22%)" }}
+                >
+                  {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Share2 className="h-3.5 w-3.5" />}
+                  {copied ? tCommon("copied") : tGenerate("share")}
+                </button>
+                <button
+                  onClick={startEdit}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+                  style={{ background: "hsl(224,18%,16%)", border: "1px solid hsl(224,16%,22%)" }}
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  수정
+                </button>
+              </>
+            )}
           </div>
         </div>
 
         <div className="space-y-1">
           <div className="flex justify-between text-[11px] text-muted-foreground">
-            <span>{tResult("teamA")} · {Math.round(teamA.totalStrength)}</span>
-            <span>{tResult("teamB")} · {Math.round(teamB.totalStrength)}</span>
+            <span>{tResult("teamA")} · {Math.round(dispA.totalStrength)}</span>
+            <span>{tResult("teamB")} · {Math.round(dispB.totalStrength)}</span>
           </div>
           <div className="flex h-1.5 rounded-full overflow-hidden" style={{ background: "hsl(224,18%,16%)" }}>
             {(() => {
-              const total = teamA.totalStrength + teamB.totalStrength || 1;
-              const aW = (teamA.totalStrength / total) * 100;
+              const total = dispA.totalStrength + dispB.totalStrength || 1;
+              const aW = (dispA.totalStrength / total) * 100;
               return (
                 <>
-                  <div className="transition-all duration-700" style={{ width: `${aW}%`, background: "#3b82f6" }} />
+                  <div className="transition-all duration-500" style={{ width: `${aW}%`, background: "#3b82f6" }} />
                   <div className="flex-1" style={{ background: "#ef4444" }} />
                 </>
               );
@@ -1449,21 +1561,130 @@ function ResultPanel({ result, copied, onShare, onRegenerate, isRegenerating }: 
         </div>
       </div>
 
+      {/* ── Team cards ── */}
       <div className="grid grid-cols-2 gap-3">
-        <TeamCard composition={teamA} side="A" />
-        <TeamCard composition={teamB} side="B" />
+        {isEditing ? (
+          <>
+            <EditableTeamCard
+              composition={editTeamA}
+              side="A"
+              selected={selected}
+              onPlayerClick={(puuid) => handlePlayerClick(puuid, "A")}
+            />
+            <EditableTeamCard
+              composition={editTeamB}
+              side="B"
+              selected={selected}
+              onPlayerClick={(puuid) => handlePlayerClick(puuid, "B")}
+            />
+          </>
+        ) : (
+          <>
+            <TeamCard composition={dispA} side="A" />
+            <TeamCard composition={dispB} side="B" />
+          </>
+        )}
       </div>
 
+      {/* ── Analysis ── */}
+      {!isEditing && (
+        <div
+          className="rounded-xl px-5 py-4 space-y-2"
+          style={{ background: "hsl(224,22%,11%)", border: "1px solid hsl(224,16%,18%)" }}
+        >
+          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{tResult("analysis")}</p>
+          {explanation.map((line, i) => (
+            <p key={i} className="text-[12px] text-muted-foreground leading-relaxed">
+              · {line}
+            </p>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Editable Team Card (edit mode) ───────────────────────────────────────────
+
+function EditableTeamCard({ composition, side, selected, onPlayerClick }: {
+  composition: TeamGenerationResult["teamA"];
+  side: "A" | "B";
+  selected: { puuid: string; team: "A" | "B" } | null;
+  onPlayerClick: (puuid: string) => void;
+}) {
+  const tResult = useTranslations("result");
+  const ROLE_ORDER = ["TOP", "JUNGLE", "MID", "ADC", "SUPPORT"];
+  const sorted = [...composition.roleAssignments].sort(
+    (a, b) => ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role)
+  );
+  const isMyTeam = (puuid: string) => composition.players.some((p) => p.puuid === puuid);
+  const hasSelectionFromOtherTeam = selected && !isMyTeam(selected.puuid);
+
+  return (
+    <div
+      className={cn("rounded-xl overflow-hidden transition-all", side === "A" ? "team-a-top" : "team-b-top")}
+      style={{ background: "hsl(224,22%,11%)", border: "1px solid hsl(224,16%,18%)" }}
+    >
       <div
-        className="rounded-xl px-5 py-4 space-y-2"
-        style={{ background: "hsl(224,22%,11%)", border: "1px solid hsl(224,16%,18%)" }}
+        className="flex items-center justify-between px-4 py-2.5"
+        style={{ borderBottom: "1px solid hsl(224,16%,16%)" }}
       >
-        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{tResult("analysis")}</p>
-        {explanation.map((line, i) => (
-          <p key={i} className="text-[12px] text-muted-foreground leading-relaxed">
-            · {line}
-          </p>
-        ))}
+        <span className={cn("font-bold text-sm", side === "A" ? "text-blue-400" : "text-red-400")}>
+          {tResult(side === "A" ? "teamA" : "teamB")}
+        </span>
+        <span className="text-[11px] text-muted-foreground font-mono">
+          {Math.round(composition.totalStrength)}
+        </span>
+      </div>
+
+      <div className="divide-y" style={{ borderColor: "hsl(224,16%,15%)" }}>
+        {sorted.map((asgn) => {
+          const player = composition.players.find((p) => p.puuid === asgn.puuid);
+          if (!player) return null;
+          const bestRanked = player.soloRanked ?? player.flexRanked;
+          const tier = bestRanked?.tier;
+          const isSelected = selected?.puuid === asgn.puuid;
+          const isSwappable = hasSelectionFromOtherTeam;
+
+          return (
+            <button
+              key={asgn.puuid}
+              onClick={() => onPlayerClick(asgn.puuid)}
+              className={cn(
+                "w-full flex items-center gap-2 px-4 py-2.5 text-left transition-all",
+                isSelected
+                  ? "bg-amber-500/10"
+                  : isSwappable
+                  ? "hover:bg-blue-500/5 cursor-pointer"
+                  : "hover:bg-white/3 cursor-pointer"
+              )}
+              style={isSelected ? { boxShadow: "inset 0 0 0 1px rgba(200,149,42,0.4)" } : undefined}
+            >
+              <span className={cn("text-[11px] font-bold w-7 shrink-0", ROLE_COLOR[asgn.role])}>
+                {tResult(`roleShort.${asgn.role}` as `roleShort.${Role}`)}
+              </span>
+              <span className={cn(
+                "flex-1 min-w-0 text-[13px] font-medium truncate transition-colors",
+                isSelected ? "text-amber-300" : "text-foreground"
+              )}>
+                {player.gameName}
+              </span>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {tier && (
+                  <span className={cn("text-[10px] font-bold", TIER_COLOR[tier])}>
+                    {TIER_ABBR[tier]}{bestRanked?.rank}
+                  </span>
+                )}
+                {isSelected && (
+                  <span className="text-[9px] font-bold" style={{ color: "#c8952a" }}>선택됨</span>
+                )}
+                {!isSelected && isSwappable && (
+                  <span className="text-[9px] text-muted-foreground/50">↔</span>
+                )}
+              </div>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
