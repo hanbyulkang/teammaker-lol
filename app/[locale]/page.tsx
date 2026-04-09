@@ -70,6 +70,8 @@ interface SavedPlayerEntry {
   platform: string;
   primaryRoles: Role[];
   secondaryRoles: Role[];
+  tier: Tier | "";
+  division: Division;
 }
 
 function makeRow(name = "", tag = ""): PlayerRow {
@@ -146,6 +148,7 @@ export default function HomePage() {
   const [savedPlayers, setSavedPlayers] = useState<SavedPlayerEntry[]>([]);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [playerSearch, setPlayerSearch] = useState("");
+  const [isManaging, setIsManaging] = useState(false);
 
   // ── Paste handler ─────────────────────────────────────────────────────────
 
@@ -229,8 +232,8 @@ export default function HomePage() {
             tagLine: row.tag.trim(),
             profile: p,
             isManual: false,
-            tier: (p.soloRanked ?? p.flexRanked)?.tier ?? "",
-            division: ((p.soloRanked ?? p.flexRanked)?.rank ?? "IV") as Division,
+            tier: saved?.tier !== undefined && saved.tier !== "" ? saved.tier : ((p.soloRanked ?? p.flexRanked)?.tier ?? ""),
+            division: saved?.division ?? (((p.soloRanked ?? p.flexRanked)?.rank ?? "IV") as Division),
             primaryRoles: saved?.primaryRoles ?? [],
             secondaryRoles: saved?.secondaryRoles ?? [],
           };
@@ -418,13 +421,16 @@ export default function HomePage() {
     fetch("/api/saved-players")
       .then((r) => r.json())
       .then((data) => {
-        const players = (data.players ?? []).map((p: { puuid: string; gameName: string; tagLine: string; platform: string; profileData?: { _primaryRoles?: Role[]; _secondaryRoles?: Role[] } }) => ({
+        type RawSaved = { puuid: string; gameName: string; tagLine: string; platform: string; profileData?: { _primaryRoles?: Role[]; _secondaryRoles?: Role[]; _tier?: Tier | ""; _division?: Division; soloRanked?: { tier?: Tier; rank?: string } } };
+        const players = (data.players ?? []).map((p: RawSaved) => ({
           puuid: p.puuid,
           gameName: p.gameName,
           tagLine: p.tagLine,
           platform: p.platform,
           primaryRoles: p.profileData?._primaryRoles ?? [],
           secondaryRoles: p.profileData?._secondaryRoles ?? [],
+          tier: p.profileData?._tier ?? (p.profileData?.soloRanked?.tier ?? "") as Tier | "",
+          division: (p.profileData?._division ?? "IV") as Division,
         }));
         setSavedPlayers(players);
       })
@@ -447,6 +453,8 @@ export default function HomePage() {
             ...(e.profile! as unknown as Record<string, unknown>),
             _primaryRoles: e.primaryRoles,
             _secondaryRoles: e.secondaryRoles,
+            _tier: e.tier,
+            _division: e.division,
           },
         }));
       if (players.length === 0) return;
@@ -476,6 +484,13 @@ export default function HomePage() {
     );
   }, [rows]);
 
+  const handleDeleteSaved = useCallback(async (puuid: string) => {
+    setSavedPlayers((prev) => prev.filter((p) => p.puuid !== puuid));
+    try {
+      await fetch(`/api/saved-players/${puuid}`, { method: "DELETE" });
+    } catch { /* non-fatal */ }
+  }, []);
+
   const allFilled = rows.every((r) => r.name.trim() && r.tag.trim());
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -499,28 +514,58 @@ export default function HomePage() {
                       <Bookmark className="h-3 w-3" />
                       {tSave("savedPlayersLabel")}
                     </span>
-                    <div className="relative">
-                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground/50" />
-                      <input
-                        type="text"
-                        placeholder={tSave("searchPlaceholder")}
-                        value={playerSearch}
-                        onChange={(e) => setPlayerSearch(e.target.value)}
-                        className="pl-6 pr-2 py-1 text-[11px] rounded-md bg-black/20 border border-border/50 text-foreground placeholder:text-muted-foreground/40 outline-none w-28"
-                      />
+                    <div className="flex items-center gap-2">
+                      {!isManaging && (
+                        <div className="relative">
+                          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground/50" />
+                          <input
+                            type="text"
+                            placeholder={tSave("searchPlaceholder")}
+                            value={playerSearch}
+                            onChange={(e) => setPlayerSearch(e.target.value)}
+                            className="pl-6 pr-2 py-1 text-[11px] rounded-md bg-black/20 border border-border/50 text-foreground placeholder:text-muted-foreground/40 outline-none w-28"
+                          />
+                        </div>
+                      )}
+                      <button
+                        onClick={() => { setIsManaging((v) => !v); setPlayerSearch(""); }}
+                        className={cn(
+                          "text-[11px] font-medium px-2 py-1 rounded-md border transition-colors",
+                          isManaging
+                            ? "border-primary/40 text-primary bg-primary/5"
+                            : "border-border/50 text-muted-foreground hover:text-foreground hover:border-border"
+                        )}
+                      >
+                        {isManaging ? "완료" : "관리"}
+                      </button>
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     {savedPlayers
                       .filter((sp) =>
-                        !playerSearch ||
+                        isManaging || !playerSearch ||
                         `${sp.gameName}#${sp.tagLine}`.toLowerCase().includes(playerSearch.toLowerCase())
                       )
                       .map((sp) => {
-                        const alreadyAdded = rows.some(
+                        const alreadyAdded = !isManaging && rows.some(
                           (r) => r.name.toLowerCase() === sp.gameName.toLowerCase() && r.tag.toLowerCase() === sp.tagLine.toLowerCase()
                         );
-                        return (
+                        return isManaging ? (
+                          <div
+                            key={sp.puuid}
+                            className="flex items-center gap-1 pl-2 pr-1 py-1 rounded-md text-[11px] font-medium border border-border/50"
+                            style={{ background: "rgba(255,255,255,0.03)" }}
+                          >
+                            <span className="text-foreground/70">{sp.gameName}</span>
+                            <span className="text-muted-foreground/40">#{sp.tagLine}</span>
+                            <button
+                              onClick={() => handleDeleteSaved(sp.puuid)}
+                              className="ml-1 h-4 w-4 rounded flex items-center justify-center text-muted-foreground/50 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                            >
+                              <X className="h-2.5 w-2.5" />
+                            </button>
+                          </div>
+                        ) : (
                           <button
                             key={sp.puuid}
                             onClick={() => !alreadyAdded && fillRowFromSaved(sp)}
@@ -612,6 +657,7 @@ export default function HomePage() {
                   isLast={i === rows.length - 1}
                   onChange={(patch) => updateRow(row.id, patch)}
                   onPaste={(e) => handlePaste(e, i)}
+                  onClear={() => updateRow(row.id, { name: "", tag: "", status: "idle", profile: null, errorMsg: null })}
                 />
               ))}
             </div>
@@ -812,20 +858,22 @@ export default function HomePage() {
 // ─── Player Input Row ──────────────────────────────────────────────────────────
 
 function PlayerInputRow({
-  index, row, isLast, onChange, onPaste,
+  index, row, isLast, onChange, onPaste, onClear,
 }: {
   index: number;
   row: PlayerRow;
   isLast: boolean;
   onChange: (p: Partial<PlayerRow>) => void;
   onPaste: (e: React.ClipboardEvent<HTMLInputElement>) => void;
+  onClear: () => void;
 }) {
   const tInput = useTranslations("input");
+  const hasContent = !!(row.name || row.tag);
   return (
     <div
-      className="input-row grid items-center px-4 transition-colors"
+      className="input-row grid items-center px-4 transition-colors group"
       style={{
-        gridTemplateColumns: "28px 1fr 8px 80px 24px",
+        gridTemplateColumns: "28px 1fr 8px 80px 32px",
         gap: "8px",
         borderBottom: isLast ? "none" : "1px solid hsl(224,16%,15%)",
         minHeight: "44px",
@@ -856,7 +904,7 @@ function PlayerInputRow({
           row.status === "error" && "text-red-400",
         )}
       />
-      <div className="flex flex-col items-center justify-center gap-0.5">
+      <div className="flex items-center justify-center">
         {row.status === "loading" && (
           <Loader2 className="h-3 w-3 text-muted-foreground/50 animate-spin" />
         )}
@@ -879,8 +927,17 @@ function PlayerInputRow({
             </span>
           </div>
         )}
-        {row.status === "idle" && (row.name || row.tag) && (
-          <span className="h-1.5 w-1.5 rounded-full bg-border" />
+        {row.status === "idle" && hasContent && (
+          <button
+            onClick={onClear}
+            className="h-5 w-5 rounded flex items-center justify-center text-muted-foreground/30 hover:text-muted-foreground hover:bg-white/5 transition-all opacity-0 group-hover:opacity-100"
+            tabIndex={-1}
+          >
+            <X className="h-3 w-3" />
+          </button>
+        )}
+        {row.status === "idle" && !hasContent && (
+          <span className="h-1.5 w-1.5 rounded-full bg-transparent" />
         )}
       </div>
     </div>
