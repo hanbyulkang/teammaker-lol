@@ -73,6 +73,18 @@ interface SavedPlayerEntry {
   secondaryRoles: Role[];
   tier: Tier | "";
   division: Division;
+  rawProfileData?: unknown;
+}
+
+interface EditPlayerForm {
+  puuid: string | null;
+  gameName: string;
+  tagLine: string;
+  platform: Platform;
+  primaryRoles: Role[];
+  secondaryRoles: Role[];
+  tier: Tier | "";
+  division: Division;
 }
 
 function makeRow(name = "", tag = ""): PlayerRow {
@@ -150,6 +162,9 @@ export default function HomePage() {
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [playerSearch, setPlayerSearch] = useState("");
   const [isManaging, setIsManaging] = useState(false);
+  const [editPlayerForm, setEditPlayerForm] = useState<EditPlayerForm | null>(null);
+  const [editPlayerLoading, setEditPlayerLoading] = useState(false);
+  const [editPlayerError, setEditPlayerError] = useState<string | null>(null);
 
   // ── Paste handler ─────────────────────────────────────────────────────────
 
@@ -432,6 +447,7 @@ export default function HomePage() {
           secondaryRoles: p.profileData?._secondaryRoles ?? [],
           tier: p.profileData?._tier ?? (p.profileData?.soloRanked?.tier ?? "") as Tier | "",
           division: (p.profileData?._division ?? "IV") as Division,
+          rawProfileData: p.profileData as unknown,
         }));
         setSavedPlayers(players);
       })
@@ -492,6 +508,122 @@ export default function HomePage() {
     } catch { /* non-fatal */ }
   }, []);
 
+  const openAddPlayerForm = useCallback(() => {
+    setEditPlayerForm({ puuid: null, gameName: "", tagLine: "", platform: "kr", primaryRoles: [], secondaryRoles: [], tier: "", division: "IV" });
+    setEditPlayerError(null);
+  }, []);
+
+  const openEditPlayerForm = useCallback((sp: SavedPlayerEntry) => {
+    setEditPlayerForm({
+      puuid: sp.puuid,
+      gameName: sp.gameName,
+      tagLine: sp.tagLine,
+      platform: sp.platform as Platform,
+      primaryRoles: sp.primaryRoles,
+      secondaryRoles: sp.secondaryRoles,
+      tier: sp.tier,
+      division: sp.division,
+    });
+    setEditPlayerError(null);
+  }, []);
+
+  const handleEditFormRoleToggle = useCallback((role: Role) => {
+    setEditPlayerForm((prev) => {
+      if (!prev) return prev;
+      const isPrimary = prev.primaryRoles.includes(role);
+      const isSecondary = prev.secondaryRoles.includes(role);
+      if (!isPrimary && !isSecondary) {
+        return { ...prev, primaryRoles: [...prev.primaryRoles, role] };
+      } else if (isPrimary) {
+        return { ...prev, primaryRoles: prev.primaryRoles.filter((r) => r !== role), secondaryRoles: [...prev.secondaryRoles, role] };
+      } else {
+        return { ...prev, secondaryRoles: prev.secondaryRoles.filter((r) => r !== role) };
+      }
+    });
+  }, []);
+
+  const handleSaveEditedPlayer = useCallback(async () => {
+    if (!editPlayerForm) return;
+    setEditPlayerLoading(true);
+    setEditPlayerError(null);
+    try {
+      let profileData: Record<string, unknown>;
+      if (editPlayerForm.puuid) {
+        // Editing existing — merge role/tier changes into existing rawProfileData
+        const existing = savedPlayers.find((sp) => sp.puuid === editPlayerForm.puuid);
+        profileData = {
+          ...((existing?.rawProfileData as Record<string, unknown>) ?? {}),
+          _primaryRoles: editPlayerForm.primaryRoles,
+          _secondaryRoles: editPlayerForm.secondaryRoles,
+          _tier: editPlayerForm.tier,
+          _division: editPlayerForm.division,
+        };
+        await fetch("/api/saved-players", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            players: [{
+              puuid: editPlayerForm.puuid,
+              gameName: editPlayerForm.gameName,
+              tagLine: editPlayerForm.tagLine,
+              platform: editPlayerForm.platform,
+              profileData,
+            }],
+          }),
+        });
+        setSavedPlayers((prev) => prev.map((sp) =>
+          sp.puuid === editPlayerForm.puuid
+            ? { ...sp, gameName: editPlayerForm.gameName, tagLine: editPlayerForm.tagLine, platform: editPlayerForm.platform, primaryRoles: editPlayerForm.primaryRoles, secondaryRoles: editPlayerForm.secondaryRoles, tier: editPlayerForm.tier, division: editPlayerForm.division, rawProfileData: profileData }
+            : sp
+        ));
+      } else {
+        // Adding new — build a manual profile
+        const manualProfile = buildManualProfile(
+          editPlayerForm.gameName, editPlayerForm.tagLine, editPlayerForm.platform,
+          editPlayerForm.tier, editPlayerForm.division,
+          editPlayerForm.primaryRoles, editPlayerForm.secondaryRoles,
+        );
+        profileData = {
+          ...(manualProfile as unknown as Record<string, unknown>),
+          _primaryRoles: editPlayerForm.primaryRoles,
+          _secondaryRoles: editPlayerForm.secondaryRoles,
+          _tier: editPlayerForm.tier,
+          _division: editPlayerForm.division,
+        };
+        const newPuuid = `manual-${editPlayerForm.gameName}-${editPlayerForm.tagLine}-${editPlayerForm.platform}`;
+        await fetch("/api/saved-players", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            players: [{
+              puuid: newPuuid,
+              gameName: editPlayerForm.gameName,
+              tagLine: editPlayerForm.tagLine,
+              platform: editPlayerForm.platform,
+              profileData,
+            }],
+          }),
+        });
+        setSavedPlayers((prev) => [...prev, {
+          puuid: newPuuid,
+          gameName: editPlayerForm.gameName,
+          tagLine: editPlayerForm.tagLine,
+          platform: editPlayerForm.platform,
+          primaryRoles: editPlayerForm.primaryRoles,
+          secondaryRoles: editPlayerForm.secondaryRoles,
+          tier: editPlayerForm.tier,
+          division: editPlayerForm.division,
+          rawProfileData: profileData,
+        }]);
+      }
+      setEditPlayerForm(null);
+    } catch {
+      setEditPlayerError("저장 중 오류가 발생했습니다.");
+    } finally {
+      setEditPlayerLoading(false);
+    }
+  }, [editPlayerForm, savedPlayers]);
+
   const allFilled = rows.every((r) => r.name.trim() && r.tag.trim());
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -505,42 +637,45 @@ export default function HomePage() {
           <>
             {/* Saved players panel */}
             {session?.user ? (
-              savedPlayers.length > 0 && (
-                <div
-                  className="rounded-xl p-3 space-y-2"
-                  style={{ background: "hsl(224,22%,11%)", border: "1px solid hsl(224,16%,18%)" }}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-semibold text-muted-foreground/70 flex items-center gap-1.5">
-                      <Bookmark className="h-3 w-3" />
-                      {tSave("savedPlayersLabel")}
-                    </span>
-                    <div className="flex items-center gap-2">
-                      {!isManaging && (
-                        <div className="relative">
-                          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground/50" />
-                          <input
-                            type="text"
-                            placeholder={tSave("searchPlaceholder")}
-                            value={playerSearch}
-                            onChange={(e) => setPlayerSearch(e.target.value)}
-                            className="pl-6 pr-2 py-1 text-[11px] rounded-md bg-black/20 border border-border/50 text-foreground placeholder:text-muted-foreground/40 outline-none w-28"
-                          />
-                        </div>
+              <div
+                className="rounded-xl p-3 space-y-2"
+                style={{ background: "hsl(224,22%,11%)", border: "1px solid hsl(224,16%,18%)" }}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-muted-foreground/70 flex items-center gap-1.5">
+                    <Bookmark className="h-3 w-3" />
+                    {tSave("savedPlayersLabel")}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    {!isManaging && savedPlayers.length > 0 && (
+                      <div className="relative">
+                        <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground/50" />
+                        <input
+                          type="text"
+                          placeholder={tSave("searchPlaceholder")}
+                          value={playerSearch}
+                          onChange={(e) => setPlayerSearch(e.target.value)}
+                          className="pl-6 pr-2 py-1 text-[11px] rounded-md bg-black/20 border border-border/50 text-foreground placeholder:text-muted-foreground/40 outline-none w-28"
+                        />
+                      </div>
+                    )}
+                    <button
+                      onClick={() => { setIsManaging((v) => !v); setPlayerSearch(""); setEditPlayerForm(null); }}
+                      className={cn(
+                        "text-[11px] font-medium px-2 py-1 rounded-md border transition-colors",
+                        isManaging
+                          ? "border-primary/40 text-primary bg-primary/5"
+                          : "border-border/50 text-muted-foreground hover:text-foreground hover:border-border"
                       )}
-                      <button
-                        onClick={() => { setIsManaging((v) => !v); setPlayerSearch(""); }}
-                        className={cn(
-                          "text-[11px] font-medium px-2 py-1 rounded-md border transition-colors",
-                          isManaging
-                            ? "border-primary/40 text-primary bg-primary/5"
-                            : "border-border/50 text-muted-foreground hover:text-foreground hover:border-border"
-                        )}
-                      >
-                        {isManaging ? "완료" : "관리"}
-                      </button>
-                    </div>
+                    >
+                      {isManaging ? "완료" : "관리"}
+                    </button>
                   </div>
+                </div>
+                {savedPlayers.length === 0 && !isManaging && (
+                  <p className="text-[11px] text-muted-foreground/40 py-1">저장된 플레이어가 없습니다.</p>
+                )}
+                {(savedPlayers.length > 0 || isManaging) && (
                   <div className="flex flex-wrap gap-1.5">
                     {savedPlayers
                       .filter((sp) =>
@@ -548,19 +683,26 @@ export default function HomePage() {
                         `${sp.gameName}#${sp.tagLine}`.toLowerCase().includes(playerSearch.toLowerCase())
                       )
                       .map((sp) => {
+                        const isEditing = editPlayerForm?.puuid === sp.puuid;
                         const alreadyAdded = !isManaging && rows.some(
                           (r) => r.name.toLowerCase() === sp.gameName.toLowerCase() && r.tag.toLowerCase() === sp.tagLine.toLowerCase()
                         );
                         return isManaging ? (
                           <div
                             key={sp.puuid}
-                            className="flex items-center gap-1 pl-2 pr-1 py-1 rounded-md text-[11px] font-medium border border-border/50"
-                            style={{ background: "rgba(255,255,255,0.03)" }}
+                            className={cn(
+                              "flex items-center gap-1 pl-2 pr-1 py-1 rounded-md text-[11px] font-medium border transition-colors cursor-pointer",
+                              isEditing
+                                ? "border-primary/50 bg-primary/10 text-foreground"
+                                : "border-border/50 hover:border-border hover:bg-white/5"
+                            )}
+                            style={isEditing ? {} : { background: "rgba(255,255,255,0.03)" }}
+                            onClick={() => isEditing ? setEditPlayerForm(null) : openEditPlayerForm(sp)}
                           >
                             <span className="text-foreground/70">{sp.gameName}</span>
                             <span className="text-muted-foreground/40">#{sp.tagLine}</span>
                             <button
-                              onClick={() => handleDeleteSaved(sp.puuid)}
+                              onClick={(e) => { e.stopPropagation(); handleDeleteSaved(sp.puuid); if (isEditing) setEditPlayerForm(null); }}
                               className="ml-1 h-4 w-4 rounded flex items-center justify-center text-muted-foreground/50 hover:text-red-400 hover:bg-red-500/10 transition-colors"
                             >
                               <X className="h-2.5 w-2.5" />
@@ -585,9 +727,123 @@ export default function HomePage() {
                           </button>
                         );
                       })}
+                    {isManaging && (
+                      <button
+                        onClick={() => editPlayerForm?.puuid === null ? setEditPlayerForm(null) : openAddPlayerForm()}
+                        className={cn(
+                          "flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium border transition-colors",
+                          editPlayerForm?.puuid === null
+                            ? "border-primary/50 bg-primary/10 text-primary"
+                            : "border-dashed border-border/50 text-muted-foreground/60 hover:border-primary/40 hover:text-primary/80"
+                        )}
+                        style={{ background: editPlayerForm?.puuid === null ? undefined : "rgba(255,255,255,0.02)" }}
+                      >
+                        <span className="text-lg leading-none pb-0.5">+</span>
+                        <span>추가</span>
+                      </button>
+                    )}
                   </div>
-                </div>
-              )
+                )}
+                {/* Inline edit/add form */}
+                {isManaging && editPlayerForm && (
+                  <div className="mt-2 pt-2 border-t border-border/30 space-y-2">
+                    {editPlayerForm.puuid === null && (
+                      <div className="grid grid-cols-[1fr_auto_auto] gap-1.5">
+                        <input
+                          type="text"
+                          placeholder="게임 이름"
+                          value={editPlayerForm.gameName}
+                          onChange={(e) => setEditPlayerForm((f) => f && { ...f, gameName: e.target.value })}
+                          className="px-2 py-1 text-[11px] rounded-md bg-black/20 border border-border/50 text-foreground placeholder:text-muted-foreground/40 outline-none"
+                        />
+                        <input
+                          type="text"
+                          placeholder="태그"
+                          value={editPlayerForm.tagLine}
+                          onChange={(e) => setEditPlayerForm((f) => f && { ...f, tagLine: e.target.value })}
+                          className="px-2 py-1 text-[11px] rounded-md bg-black/20 border border-border/50 text-foreground placeholder:text-muted-foreground/40 outline-none w-16"
+                        />
+                        <select
+                          value={editPlayerForm.platform}
+                          onChange={(e) => setEditPlayerForm((f) => f && { ...f, platform: e.target.value as Platform })}
+                          className="px-1.5 py-1 text-[11px] rounded-md bg-black/20 border border-border/50 text-foreground outline-none"
+                        >
+                          {(["kr","na","euw","eune","jp","br","lan","las","oce","tr","ru"] as Platform[]).map((p) => (
+                            <option key={p} value={p}>{p.toUpperCase()}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                    <div className="grid grid-cols-[1fr_auto] gap-1.5">
+                      <div className="space-y-1">
+                        <div className="text-[10px] text-muted-foreground/50 mb-0.5">포지션 (1탭=주포, 2탭=부포)</div>
+                        <div className="flex gap-1">
+                          {ALL_ROLES.map((role) => {
+                            const isPrimary = editPlayerForm.primaryRoles.includes(role);
+                            const isSecondary = editPlayerForm.secondaryRoles.includes(role);
+                            return (
+                              <button
+                                key={role}
+                                onClick={() => handleEditFormRoleToggle(role)}
+                                className={cn(
+                                  "px-1.5 py-0.5 rounded text-[10px] font-medium border transition-colors",
+                                  isPrimary
+                                    ? "border-primary bg-primary/20 text-primary"
+                                    : isSecondary
+                                    ? "border-amber-400/60 bg-amber-400/10 text-amber-300"
+                                    : "border-border/40 text-muted-foreground/50 hover:border-border hover:text-muted-foreground"
+                                )}
+                              >
+                                {ROLE_KR[role]}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="text-[10px] text-muted-foreground/50 mb-0.5">티어</div>
+                        <div className="flex gap-1 items-center">
+                          <select
+                            value={editPlayerForm.tier}
+                            onChange={(e) => setEditPlayerForm((f) => f && { ...f, tier: e.target.value as Tier | "" })}
+                            className="px-1.5 py-0.5 text-[11px] rounded-md bg-black/20 border border-border/50 text-foreground outline-none"
+                          >
+                            <option value="">-</option>
+                            {ALL_TIERS.map((t) => <option key={t} value={t}>{t}</option>)}
+                          </select>
+                          {editPlayerForm.tier && !APEX_TIERS.includes(editPlayerForm.tier as Tier) && (
+                            <select
+                              value={editPlayerForm.division}
+                              onChange={(e) => setEditPlayerForm((f) => f && { ...f, division: e.target.value as Division })}
+                              className="px-1.5 py-0.5 text-[11px] rounded-md bg-black/20 border border-border/50 text-foreground outline-none w-14"
+                            >
+                              {ALL_DIVISIONS.map((d) => <option key={d} value={d}>{d}</option>)}
+                            </select>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    {editPlayerError && (
+                      <p className="text-[11px] text-red-400">{editPlayerError}</p>
+                    )}
+                    <div className="flex gap-1.5 justify-end">
+                      <button
+                        onClick={() => setEditPlayerForm(null)}
+                        className="px-2.5 py-1 text-[11px] rounded-md border border-border/50 text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        취소
+                      </button>
+                      <button
+                        onClick={handleSaveEditedPlayer}
+                        disabled={editPlayerLoading || (!editPlayerForm.puuid && (!editPlayerForm.gameName.trim() || !editPlayerForm.tagLine.trim()))}
+                        className="px-2.5 py-1 text-[11px] rounded-md bg-primary/80 hover:bg-primary text-white font-medium transition-colors disabled:opacity-50"
+                      >
+                        {editPlayerLoading ? "저장 중..." : "저장"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             ) : (
               <div
                 className="flex items-center justify-between rounded-xl px-4 py-2.5"
