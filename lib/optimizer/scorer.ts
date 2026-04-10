@@ -164,6 +164,46 @@ export function generateExplanation(
   return lines;
 }
 
+/**
+ * Swap role assignments between two players within the same team.
+ * Recalculates roleScore, isOffRole, isPrimaryRole, isSecondaryRole for both.
+ */
+export function swapRolesInTeam(
+  team: TeamComposition,
+  puuid1: string,
+  puuid2: string
+): TeamComposition {
+  const asgn1 = team.roleAssignments.find((a) => a.puuid === puuid1)!;
+  const asgn2 = team.roleAssignments.find((a) => a.puuid === puuid2)!;
+  const player1 = team.players.find((p) => p.puuid === puuid1)!;
+  const player2 = team.players.find((p) => p.puuid === puuid2)!;
+
+  const newAsgn1: RoleAssignment = {
+    puuid: puuid1,
+    role: asgn2.role,
+    roleScore: getRoleScore(player1.baseSkill, player1.roleComfort, asgn2.role),
+    ...classifyRoleAssignment(player1.roleComfort, asgn2.role, player1.primaryRole, player1.secondaryRole),
+  };
+  const newAsgn2: RoleAssignment = {
+    puuid: puuid2,
+    role: asgn1.role,
+    roleScore: getRoleScore(player2.baseSkill, player2.roleComfort, asgn1.role),
+    ...classifyRoleAssignment(player2.roleComfort, asgn1.role, player2.primaryRole, player2.secondaryRole),
+  };
+
+  const newAssignments = team.roleAssignments.map((a) => {
+    if (a.puuid === puuid1) return newAsgn1;
+    if (a.puuid === puuid2) return newAsgn2;
+    return a;
+  });
+
+  return {
+    ...team,
+    roleAssignments: newAssignments,
+    totalStrength: newAssignments.reduce((sum, a) => sum + a.roleScore, 0),
+  };
+}
+
 // ─── Permutation utility ──────────────────────────────────────────────────────
 
 function permutations<T>(arr: T[]): T[][] {

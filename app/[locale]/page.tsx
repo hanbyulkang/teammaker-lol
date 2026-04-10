@@ -7,7 +7,7 @@ import { Loader2, X, RefreshCw, Share2, Check, ChevronDown, ArrowLeft, BookmarkP
 import { cn, lobbyUrl } from "@/lib/utils";
 import { PLATFORMS } from "@/lib/riot/constants";
 import { rankToScore } from "@/lib/analysis/rankMapping";
-import { buildTeamComposition, computeBalanceScore, generateExplanation } from "@/lib/optimizer/scorer";
+import { buildTeamComposition, computeBalanceScore, generateExplanation, swapRolesInTeam } from "@/lib/optimizer/scorer";
 import type { Platform, PlayerProfile, TeamGenerationResult, Tier, Division, Role, RoleComfort, TeamConstraint, ConstraintType } from "@/types";
 import { v4 as uuidv4 } from "uuid";
 
@@ -1704,9 +1704,16 @@ function ResultPanel({ result, copied, onShare, onRegenerate, isRegenerating, on
   const handlePlayerClick = (puuid: string, team: "A" | "B") => {
     if (!selected) { setSelected({ puuid, team }); return; }
     if (selected.puuid === puuid) { setSelected(null); return; }
-    if (selected.team === team) { setSelected({ puuid, team }); return; }
 
-    // Cross-team swap
+    if (selected.team === team) {
+      // Same-team: swap role assignments between the two players
+      if (team === "A") setEditTeamA(swapRolesInTeam(editTeamA, selected.puuid, puuid));
+      else setEditTeamB(swapRolesInTeam(editTeamB, selected.puuid, puuid));
+      setSelected(null);
+      return;
+    }
+
+    // Cross-team swap: move players between teams, reoptimize roles for each
     const puuidA = selected.team === "A" ? selected.puuid : puuid;
     const puuidB = selected.team === "B" ? selected.puuid : puuid;
     const playerA = editTeamA.players.find((p) => p.puuid === puuidA)!;
@@ -1744,7 +1751,9 @@ function ResultPanel({ result, copied, onShare, onRegenerate, isRegenerating, on
               수정 모드
             </span>
             <span className="text-[11px] text-muted-foreground">
-              {selected ? "다른 팀의 플레이어를 클릭해 교체하세요" : "교체할 플레이어를 선택하세요"}
+              {selected
+                ? "같은 팀 → 포지션 교체 · 다른 팀 → 팀 이동"
+                : "교체할 플레이어를 선택하세요"}
             </span>
           </div>
         )}
@@ -1895,6 +1904,7 @@ function EditableTeamCard({ composition, side, selected, onPlayerClick }: {
   );
   const isMyTeam = (puuid: string) => composition.players.some((p) => p.puuid === puuid);
   const hasSelectionFromOtherTeam = selected && !isMyTeam(selected.puuid);
+  const hasSelectionFromMyTeam = selected && isMyTeam(selected.puuid);
 
   return (
     <div
@@ -1920,19 +1930,22 @@ function EditableTeamCard({ composition, side, selected, onPlayerClick }: {
           const bestRanked = player.soloRanked ?? player.flexRanked;
           const tier = bestRanked?.tier;
           const isSelected = selected?.puuid === asgn.puuid;
-          const isSwappable = hasSelectionFromOtherTeam;
+          const isCrossSwappable = !isSelected && hasSelectionFromOtherTeam;
+          const isSameSwappable = !isSelected && hasSelectionFromMyTeam && isMyTeam(asgn.puuid);
 
           return (
             <button
               key={asgn.puuid}
               onClick={() => onPlayerClick(asgn.puuid)}
               className={cn(
-                "w-full flex items-center gap-2 px-4 py-2.5 text-left transition-all",
+                "w-full flex items-center gap-2 px-4 py-2.5 text-left transition-all cursor-pointer",
                 isSelected
                   ? "bg-amber-500/10"
-                  : isSwappable
-                  ? "hover:bg-blue-500/5 cursor-pointer"
-                  : "hover:bg-white/3 cursor-pointer"
+                  : isSameSwappable
+                  ? "hover:bg-emerald-500/8"
+                  : isCrossSwappable
+                  ? "hover:bg-blue-500/5"
+                  : "hover:bg-white/3"
               )}
               style={isSelected ? { boxShadow: "inset 0 0 0 1px rgba(200,149,42,0.4)" } : undefined}
             >
@@ -1954,7 +1967,10 @@ function EditableTeamCard({ composition, side, selected, onPlayerClick }: {
                 {isSelected && (
                   <span className="text-[9px] font-bold" style={{ color: "#c8952a" }}>선택됨</span>
                 )}
-                {!isSelected && isSwappable && (
+                {isSameSwappable && (
+                  <span className="text-[9px] text-emerald-400/70">↕</span>
+                )}
+                {isCrossSwappable && (
                   <span className="text-[9px] text-muted-foreground/50">↔</span>
                 )}
               </div>
