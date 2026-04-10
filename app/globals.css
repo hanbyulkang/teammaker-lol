@@ -74,4 +74,13 @@
   .input-row:hover {
     background: hsl(224, 20%, 13%);
   }
+
+  .banpick-btn {
+    background: rgba(200, 149, 42, 0.1);
+    border: 1px solid rgba(200, 149, 42, 0.3);
+    color: #c8952a;
+  }
+  .banpick-btn:hover {
+    background: rgba(200, 149, 42, 0.18);
+  }
 }

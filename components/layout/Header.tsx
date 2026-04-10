@@ -21,14 +21,7 @@ export function Header() {
             href="https://banpick.lol"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[12px] font-medium px-2.5 py-1 rounded-md transition-colors"
-            style={{
-              background: "rgba(200,149,42,0.1)",
-              border: "1px solid rgba(200,149,42,0.3)",
-              color: "#c8952a",
-            }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(200,149,42,0.18)"; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(200,149,42,0.1)"; }}
+            className="banpick-btn text-[12px] font-medium px-2.5 py-1 rounded-md transition-colors"
           >
             밴픽하러 가기 →
           </a>
