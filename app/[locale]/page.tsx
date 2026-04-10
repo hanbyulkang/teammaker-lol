@@ -7,6 +7,7 @@ import { Loader2, X, RefreshCw, Share2, Check, ChevronDown, ArrowLeft, BookmarkP
 import { cn, lobbyUrl } from "@/lib/utils";
 import { PLATFORMS } from "@/lib/riot/constants";
 import { rankToScore } from "@/lib/analysis/rankMapping";
+import { getRoleScore, classifyRoleAssignment } from "@/lib/analysis/roleInference";
 import { buildTeamComposition, computeBalanceScore, generateExplanation, swapRolesInTeam } from "@/lib/optimizer/scorer";
 import type { Platform, PlayerProfile, TeamGenerationResult, Tier, Division, Role, RoleComfort, TeamConstraint, ConstraintType } from "@/types";
 import { v4 as uuidv4 } from "uuid";
@@ -747,33 +748,31 @@ export default function HomePage() {
                 {/* Inline edit/add form */}
                 {isManaging && editPlayerForm && (
                   <div className="mt-2 pt-2 border-t border-border/30 space-y-2">
-                    {editPlayerForm.puuid === null && (
-                      <div className="grid grid-cols-[1fr_auto_auto] gap-1.5">
-                        <input
-                          type="text"
-                          placeholder="게임 이름"
-                          value={editPlayerForm.gameName}
-                          onChange={(e) => setEditPlayerForm((f) => f && { ...f, gameName: e.target.value })}
-                          className="px-2 py-1 text-[11px] rounded-md bg-black/20 border border-border/50 text-foreground placeholder:text-muted-foreground/40 outline-none"
-                        />
-                        <input
-                          type="text"
-                          placeholder="태그"
-                          value={editPlayerForm.tagLine}
-                          onChange={(e) => setEditPlayerForm((f) => f && { ...f, tagLine: e.target.value })}
-                          className="px-2 py-1 text-[11px] rounded-md bg-black/20 border border-border/50 text-foreground placeholder:text-muted-foreground/40 outline-none w-16"
-                        />
-                        <select
-                          value={editPlayerForm.platform}
-                          onChange={(e) => setEditPlayerForm((f) => f && { ...f, platform: e.target.value as Platform })}
-                          className="px-1.5 py-1 text-[11px] rounded-md bg-black/20 border border-border/50 text-foreground outline-none"
-                        >
-                          {(["kr","na","euw","eune","jp","br","lan","las","oce","tr","ru"] as Platform[]).map((p) => (
-                            <option key={p} value={p}>{p.toUpperCase()}</option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
+                    <div className="grid grid-cols-[1fr_auto_auto] gap-1.5">
+                      <input
+                        type="text"
+                        placeholder="게임 이름"
+                        value={editPlayerForm.gameName}
+                        onChange={(e) => setEditPlayerForm((f) => f && { ...f, gameName: e.target.value })}
+                        className="px-2 py-1 text-[11px] rounded-md bg-black/20 border border-border/50 text-foreground placeholder:text-muted-foreground/40 outline-none"
+                      />
+                      <input
+                        type="text"
+                        placeholder="태그"
+                        value={editPlayerForm.tagLine}
+                        onChange={(e) => setEditPlayerForm((f) => f && { ...f, tagLine: e.target.value })}
+                        className="px-2 py-1 text-[11px] rounded-md bg-black/20 border border-border/50 text-foreground placeholder:text-muted-foreground/40 outline-none w-16"
+                      />
+                      <select
+                        value={editPlayerForm.platform}
+                        onChange={(e) => setEditPlayerForm((f) => f && { ...f, platform: e.target.value as Platform })}
+                        className="px-1.5 py-1 text-[11px] rounded-md bg-black/20 border border-border/50 text-foreground outline-none"
+                      >
+                        {(["kr","na","euw","eune","jp","br","lan","las","oce","tr","ru"] as Platform[]).map((p) => (
+                          <option key={p} value={p}>{p.toUpperCase()}</option>
+                        ))}
+                      </select>
+                    </div>
                     <div className="grid grid-cols-[1fr_auto] gap-1.5">
                       <div className="space-y-1">
                         <div className="text-[10px] text-muted-foreground/50 mb-0.5">포지션</div>
@@ -855,7 +854,7 @@ export default function HomePage() {
                       </button>
                       <button
                         onClick={handleSaveEditedPlayer}
-                        disabled={editPlayerLoading || (!editPlayerForm.puuid && (!editPlayerForm.gameName.trim() || !editPlayerForm.tagLine.trim()))}
+                        disabled={editPlayerLoading || !editPlayerForm.gameName.trim() || !editPlayerForm.tagLine.trim()}
                         className="px-2.5 py-1 text-[11px] rounded-md bg-primary/80 hover:bg-primary text-white font-medium transition-colors disabled:opacity-50"
                       >
                         {editPlayerLoading ? "저장 중..." : "저장"}
@@ -1713,13 +1712,21 @@ function ResultPanel({ result, copied, onShare, onRegenerate, isRegenerating, on
       return;
     }
 
-    // Cross-team swap: move players between teams, reoptimize roles for each
+    // Cross-team swap: swap players while keeping their role slots intact
     const puuidA = selected.team === "A" ? selected.puuid : puuid;
     const puuidB = selected.team === "B" ? selected.puuid : puuid;
     const playerA = editTeamA.players.find((p) => p.puuid === puuidA)!;
     const playerB = editTeamB.players.find((p) => p.puuid === puuidB)!;
-    setEditTeamA(buildTeamComposition([...editTeamA.players.filter((p) => p.puuid !== puuidA), playerB]));
-    setEditTeamB(buildTeamComposition([...editTeamB.players.filter((p) => p.puuid !== puuidB), playerA]));
+    const asgnA = editTeamA.roleAssignments.find((a) => a.puuid === puuidA)!;
+    const asgnB = editTeamB.roleAssignments.find((a) => a.puuid === puuidB)!;
+    const newAsgnForB = { ...classifyRoleAssignment(playerB.roleComfort, asgnA.role, playerB.primaryRole, playerB.secondaryRole), puuid: puuidB, role: asgnA.role, roleScore: getRoleScore(playerB.baseSkill, playerB.roleComfort, asgnA.role) };
+    const newAsgnForA = { ...classifyRoleAssignment(playerA.roleComfort, asgnB.role, playerA.primaryRole, playerA.secondaryRole), puuid: puuidA, role: asgnB.role, roleScore: getRoleScore(playerA.baseSkill, playerA.roleComfort, asgnB.role) };
+    const newTeamAAssignments = editTeamA.roleAssignments.map((a) => a.puuid === puuidA ? newAsgnForB : a);
+    const newTeamBAssignments = editTeamB.roleAssignments.map((a) => a.puuid === puuidB ? newAsgnForA : a);
+    const newTeamAPlayers = editTeamA.players.map((p) => p.puuid === puuidA ? playerB : p);
+    const newTeamBPlayers = editTeamB.players.map((p) => p.puuid === puuidB ? playerA : p);
+    setEditTeamA({ players: newTeamAPlayers, roleAssignments: newTeamAAssignments, totalStrength: newTeamAAssignments.reduce((s, a) => s + a.roleScore, 0) });
+    setEditTeamB({ players: newTeamBPlayers, roleAssignments: newTeamBAssignments, totalStrength: newTeamBAssignments.reduce((s, a) => s + a.roleScore, 0) });
     setSelected(null);
   };
 
